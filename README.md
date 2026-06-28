@@ -15,7 +15,7 @@ A type-safe, Riverpod-integrated event bus for Flutter. It allows you to emit an
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^0.0.1
+  event_bus_riverpod: ^1.2.0
   flutter_riverpod: ^3.3.2
 ```
 
@@ -28,9 +28,11 @@ Create a typed identifier for each event. The generic type `T` is the payload ty
 ```dart
 import 'package:event_bus_riverpod/event_bus_riverpod.dart';
 
-final onUserNameChanged = EventBusIdentifier<String>('onUserNameChanged');
-final onUserAgeChanged = EventBusIdentifier<int>('onUserAgeChanged');
-final onLoginStatusChanged = EventBusIdentifier<bool>('onLoginStatusChanged');
+class EventBusConstants {
+    final onUserNameChanged = EventBusIdentifier<String>('onUserNameChanged');
+    final onUserAgeChanged = EventBusIdentifier<int>('onUserAgeChanged');
+    final onLoginStatusChanged = EventBusIdentifier<bool>('onLoginStatusChanged');
+}
 ```
 
 ### 2. Listen and emit inside a provider
@@ -41,12 +43,10 @@ Use the `ref.event()` extension to get an action object, then call `listen()` or
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:event_bus_riverpod/event_bus_riverpod.dart';
 
-final userNameProvider = StateProvider<String?>((ref) => null);
-
 // This provider listens for changes and updates state
 final userListenerProvider = Provider<void>((ref) {
-  ref.event(onUserNameChanged).listen((name) {
-    ref.read(userNameProvider.notifier).state = name;
+  ref.event(EventBusConstants.onUserNameChanged).listen((name) {
+    // Update state
   });
 });
 ```
@@ -58,7 +58,7 @@ class UserInputWidget extends ConsumerWidget {
     return TextField(
       onSubmitted: (value) {
         // Emit the event — all active listeners will be notified
-        ref.event(onUserNameChanged).emit(value);
+        ref.event(EventBusConstants.onUserNameChanged).emit(value);
       },
     );
   }
@@ -71,12 +71,14 @@ The same API works directly in widgets via the `WidgetRef.event()` extension.
 
 ```dart
 class UserNameDisplay extends ConsumerStatefulWidget {
+  const UserNameDisplay({super.key});
+
   @override
   _UserNameDisplayState createState() => _UserNameDisplayState();
 }
 
 class _UserNameDisplayState extends ConsumerState<UserNameDisplay> {
-  String _name = '';
+  final String _name = '';
 
   @override
   void initState() {
@@ -104,7 +106,7 @@ class _MyWidgetState extends ConsumerState<MyWidget> {
   @override
   void initState() {
     super.initState();
-    _disposable = ref.event(onUserAgeChanged).listenManually((age) {
+    _disposable = ref.event(EventBusConstants.onUserAgeChanged).listenManually((age) {
       print('Age changed to $age');
     });
   }
@@ -118,7 +120,7 @@ class _MyWidgetState extends ConsumerState<MyWidget> {
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
-      onPressed: () => ref.event(onUserAgeChanged).emit(30),
+      onPressed: () => ref.event(EventBusConstants.onUserAgeChanged).emit(30),
       child: const Text('Set age to 30'),
     );
   }
@@ -128,8 +130,8 @@ class _MyWidgetState extends ConsumerState<MyWidget> {
 ### 5. Check if an event has active listeners
 
 ```dart
-if (ref.event(onLoginStatusChanged).hasClients) {
-  ref.event(onLoginStatusChanged).emit(true);
+if (ref.event(EventBusConstants.onLoginStatusChanged).hasClients) {
+  ref.event(EventBusConstants.onLoginStatusChanged).emit(true);
 }
 ```
 
