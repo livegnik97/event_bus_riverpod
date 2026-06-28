@@ -1,6 +1,6 @@
-import 'package:event_bus_riverpod/event_bus/event_bus_identifier.dart';
-import 'package:event_bus_riverpod/event_bus/event_bus_provider.dart';
-import 'package:event_bus_riverpod/utils/listener_disposable.dart';
+import 'package:event_bus_riverpod/src/event_bus_identifier.dart';
+import 'package:event_bus_riverpod/src/event_bus_provider.dart';
+import 'package:event_bus_riverpod/src/listener_disposable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 abstract class EventBusAction<T> {

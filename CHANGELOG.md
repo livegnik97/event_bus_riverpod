@@ -1,3 +1,8 @@
+## 1.2.3
+
+* Reorganized internal structure: moved implementation files to `lib/src/` to make them package-private.
+* Only `event_bus_riverpod.dart` is now importable from outside the package.
+
 ## 1.2.2
 
 * Bumped down minimum required riverpod version to 3.0.0.

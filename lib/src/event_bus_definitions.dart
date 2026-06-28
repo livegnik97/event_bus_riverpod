@@ -1,4 +1,4 @@
-part of "./event_bus_provider.dart";
+part of './event_bus_provider.dart';
 
 // Definimos el tipo de callback genérico
 typedef ListenerCallback<T> = void Function(T value);

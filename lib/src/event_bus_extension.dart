@@ -1,5 +1,5 @@
-import 'package:event_bus_riverpod/event_bus/event_bus_action.dart';
-import 'package:event_bus_riverpod/event_bus/event_bus_identifier.dart';
+import 'package:event_bus_riverpod/src/event_bus_action.dart';
+import 'package:event_bus_riverpod/src/event_bus_identifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 extension EventBusForRef on Ref {

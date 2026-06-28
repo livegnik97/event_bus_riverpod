@@ -19,7 +19,7 @@ Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^1.2.1
+  event_bus_riverpod: ^1.2.3
   flutter_riverpod: ^3.0.0
 ```
 
@@ -33,9 +33,9 @@ Create a typed identifier for each event. The generic type `T` is the payload ty
 import 'package:event_bus_riverpod/event_bus_riverpod.dart';
 
 class EventBusConstants {
-    final onUserNameChanged = EventBusIdentifier<String>('onUserNameChanged');
-    final onUserAgeChanged = EventBusIdentifier<int>('onUserAgeChanged');
-    final onLoginStatusChanged = EventBusIdentifier<bool>('onLoginStatusChanged');
+    static final onUserNameChanged = EventBusIdentifier<String>('onUserNameChanged');
+    static final onUserAgeChanged = EventBusIdentifier<int>('onUserAgeChanged');
+    static final onLoginStatusChanged = EventBusIdentifier<bool>('onLoginStatusChanged');
 }
 ```
 
