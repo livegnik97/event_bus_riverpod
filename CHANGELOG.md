@@ -1,3 +1,7 @@
+## 1.2.2
+
+* Bumped down minimum required riverpod version to 3.0.0.
+
 ## 1.2.1
 
 * Added pub.dev link to README.
