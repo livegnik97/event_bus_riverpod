@@ -1,39 +1,155 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# event_bus_riverpod
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+A type-safe, Riverpod-integrated event bus for Flutter. It allows you to emit and listen to events anywhere in your app using Riverpod's dependency injection and lifecycle management.
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- **Type-safe events** – each event carries a generic type `T`, preventing type mismatches
+- **Auto-dispose** – listeners tied to a `Ref` are automatically cleaned up when the provider is destroyed
+- **Manual lifecycle** – subscribe/unsubscribe manually with `ListenerDisposable`
+- **Dual context** – extensions on both `Ref` and `WidgetRef`
+- **Multiple listeners** – many listeners can subscribe to the same event
+- **Error isolation** – a failing callback never breaks other listeners
 
 ## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+```yaml
+dependencies:
+  event_bus_riverpod: ^0.0.1
+  flutter_riverpod: ^3.3.2
+```
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+### 1. Define an event identifier
+
+Create a typed identifier for each event. The generic type `T` is the payload type.
 
 ```dart
-const like = 'sample';
+import 'package:event_bus_riverpod/event_bus_riverpod.dart';
+
+final onUserNameChanged = EventBusIdentifier<String>('onUserNameChanged');
+final onUserAgeChanged = EventBusIdentifier<int>('onUserAgeChanged');
+final onLoginStatusChanged = EventBusIdentifier<bool>('onLoginStatusChanged');
 ```
 
-## Additional information
+### 2. Listen and emit inside a provider
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+Use the `ref.event()` extension to get an action object, then call `listen()` or `emit()`.
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:event_bus_riverpod/event_bus_riverpod.dart';
+
+final userNameProvider = StateProvider<String?>((ref) => null);
+
+// This provider listens for changes and updates state
+final userListenerProvider = Provider<void>((ref) {
+  ref.event(onUserNameChanged).listen((name) {
+    ref.read(userNameProvider.notifier).state = name;
+  });
+});
+```
+
+```dart
+class UserInputWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TextField(
+      onSubmitted: (value) {
+        // Emit the event — all active listeners will be notified
+        ref.event(onUserNameChanged).emit(value);
+      },
+    );
+  }
+}
+```
+
+### 3. Listen and emit inside a widget with `WidgetRef`
+
+The same API works directly in widgets via the `WidgetRef.event()` extension.
+
+```dart
+class UserNameDisplay extends ConsumerStatefulWidget {
+  @override
+  _UserNameDisplayState createState() => _UserNameDisplayState();
+}
+
+class _UserNameDisplayState extends ConsumerState<UserNameDisplay> {
+  String _name = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Use WidgetRef.event().listen() — lifecycle is NOT auto-managed here
+    // because WidgetRef has no onDispose. Use listenManually instead.
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text('User: $_name');
+  }
+}
+```
+
+### 4. Manual subscription with `listenManually()`
+
+When you are not inside a provider (e.g., in a widget or a plain Dart class), use `listenManually()`. It returns a `ListenerDisposable` you must call `dispose()` on to unsubscribe.
+
+```dart
+class _MyWidgetState extends ConsumerState<MyWidget> {
+  ListenerDisposable? _disposable;
+
+  @override
+  void initState() {
+    super.initState();
+    _disposable = ref.event(onUserAgeChanged).listenManually((age) {
+      print('Age changed to $age');
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposable?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () => ref.event(onUserAgeChanged).emit(30),
+      child: const Text('Set age to 30'),
+    );
+  }
+}
+```
+
+### 5. Check if an event has active listeners
+
+```dart
+if (ref.event(onLoginStatusChanged).hasClients) {
+  ref.event(onLoginStatusChanged).emit(true);
+}
+```
+
+### 6. Null-safe events
+
+Nullable types are fully supported.
+
+```dart
+final onNullable = EventBusIdentifier<String?>('onNullable');
+
+ref.event(onNullable).listen((value) {
+  print(value); // can be null or String
+});
+
+ref.event(onNullable).emit(null);
+```
+
+## Reference
+
+| Extension | Available on | `listen()` | `listenManually()` | Auto-dispose |
+|-----------|-------------|------------|--------------------|--------------|
+| `EventBusForRef` | `Ref` | ✅ | ✅ | ✅ (via `ref.onDispose`) |
+| `EventBusForWidgetRef` | `WidgetRef` | ❌ | ✅ | Manual |
