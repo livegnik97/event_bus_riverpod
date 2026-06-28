@@ -11,7 +11,9 @@ A type-safe, Riverpod-integrated event bus for Flutter. It allows you to emit an
 - **Multiple listeners** – many listeners can subscribe to the same event
 - **Error isolation** – a failing callback never breaks other listeners
 
-## Getting started
+## Installing
+
+Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
