@@ -1,3 +1,7 @@
+## 1.2.4
+
+* Added API documentation comments with example code above every function in `EventBusAction`, `EventBusActionForRef`, and `EventBusActionForWidgetRef`.
+
 ## 1.2.3
 
 * Reorganized internal structure: moved implementation files to `lib/src/` to make them package-private.

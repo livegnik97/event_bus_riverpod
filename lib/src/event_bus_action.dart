@@ -3,23 +3,61 @@ import 'package:event_bus_riverpod/src/event_bus_provider.dart';
 import 'package:event_bus_riverpod/src/listener_disposable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Provides a typed interface to interact with an event bus for a specific event.
+///
+/// Obtain an instance via [Ref.event] or [WidgetRef.event].
 abstract class EventBusAction<T> {
   final EventBusIdentifier<T> event;
 
   EventBusAction({required this.event});
 
+  /// Subscribes to this event and returns a [ListenerDisposable].
+  ///
+  /// The subscription lives until [ListenerDisposable.dispose] is called.
+  /// It is **not** tied to any Riverpod lifecycle.
+  ///
+  /// ```dart
+  /// final disposable = ref.event(onCounter).listenManually((v) {
+  ///   print(v);
+  /// });
+  /// disposable.dispose(); // unsubscribe
+  /// ```
   ListenerDisposable listenManually(ListenerCallback<T> callback);
 
+  /// Fires the event, delivering [value] to all active listeners.
+  ///
+  /// ```dart
+  /// ref.event(onCounter).emit(42);
+  /// ```
   void emit(T value);
 
+  /// Whether there is at least one active listener for this event.
+  ///
+  /// ```dart
+  /// if (ref.event(onCounter).hasClients) {
+  ///   ref.event(onCounter).emit(0);
+  /// }
+  /// ```
   bool get hasClients;
 }
 
+/// [EventBusAction] implementation tied to a [Ref] for automatic lifecycle
+/// management via [listen].
 class EventBusActionForRef<T> extends EventBusAction<T> {
   final Ref ref;
 
   EventBusActionForRef({required super.event, required this.ref});
 
+  /// Subscribes to this event with **automatic disposal** tied to the [Ref].
+  ///
+  /// The listener is cleaned up when the provider that owns [ref] is
+  /// invalidated or its container disposed. No manual unsubscribe needed.
+  ///
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listen((msg) => print(msg));
+  /// });
+  /// ```
   void listen(ListenerCallback<T> callback) {
     final bus = ref.read(eventBusProvider);
     bus.listen(ref, event.eventName, callback);
@@ -42,6 +80,10 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   }
 }
 
+/// [EventBusAction] implementation tied to a [WidgetRef], used from widgets.
+///
+/// Does **not** provide a [listen] method — use [listenManually] instead,
+/// since widget lifecycles are managed differently.
 class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   final WidgetRef ref;
 

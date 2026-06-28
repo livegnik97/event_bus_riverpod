@@ -19,7 +19,7 @@ Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^1.2.3
+  event_bus_riverpod: ^1.2.4
   flutter_riverpod: ^3.0.0
 ```
 
