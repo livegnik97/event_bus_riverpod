@@ -1,3 +1,7 @@
+## 1.2.1
+
+* Added pub.dev link to README.
+
 ## 1.2.0
 
 * Initial release of the event_bus_riverpod package.

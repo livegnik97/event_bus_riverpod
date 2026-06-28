@@ -1,5 +1,7 @@
 # event_bus_riverpod
 
+[![pub package](https://img.shields.io/pub/v/event_bus_riverpod.svg)](https://pub.dev/packages/event_bus_riverpod)
+
 A type-safe, Riverpod-integrated event bus for Flutter. It allows you to emit and listen to events anywhere in your app using Riverpod's dependency injection and lifecycle management.
 
 ## Features
@@ -17,7 +19,7 @@ Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^1.2.0
+  event_bus_riverpod: ^1.2.1
   flutter_riverpod: ^3.3.2
 ```
 
