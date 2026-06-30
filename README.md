@@ -8,11 +8,11 @@ A type-safe, Riverpod-integrated event bus for Flutter. It allows you to emit an
 
 Imagine you have an app that displays store products to the user. On the main page, you have three independent lists showing the most popular, best-selling, and newest products. Tapping a product takes you to the details screen.
 
-*What happens if you add the product to the cart from that details screen, or from one of the lists?*
+**What happens if you add the product to the cart from that details screen, or from one of the lists?**
 
-*What if, on the product details screen, you fetch updated product information that differs from what you currently have?*
+**What if, on the product details screen, you fetch updated product information that differs from what you currently have?**
 
-*How would you update that product's information everywhere it appears?*
+**How would you update that product's information everywhere it appears?**
 
 You might devise a solution that ends up creating dependencies between Riverpod providers or other classes. However, with this library, you simply need to have each provider listen for events—such as an update to product X or product Y being added to or removed from the cart—receiving the data needed to manually update your list or details screen. You emit these events whenever changes occur, and—magically—the product appears updated everywhere.
 
