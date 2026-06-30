@@ -1,3 +1,7 @@
+## 1.2.5
+
+* Added more information to README.
+
 ## 1.2.4
 
 * Added API documentation comments with example code above every function in `EventBusAction`, `EventBusActionForRef`, and `EventBusActionForWidgetRef`.
