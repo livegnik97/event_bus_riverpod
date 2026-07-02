@@ -1298,5 +1298,190 @@ void main() {
         container.dispose();
       });
     });
+
+    group('where', () {
+      test('listener with where receives matching values', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        final captured = <int>[];
+        action.listen((v) {
+          captured.add(v);
+        }, where: (v, _) => v > 0);
+
+        action.emit(1);
+        action.emit(-1);
+        action.emit(2);
+
+        expect(captured, [1, 2]);
+
+        container.dispose();
+      });
+
+      test('listener with where skips non-matching values', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        final captured = <int>[];
+        action.listen((v) {
+          captured.add(v);
+        }, where: (v, _) => v.isEven);
+
+        action.emit(1);
+        action.emit(2);
+        action.emit(3);
+
+        expect(captured, [2]);
+
+        container.dispose();
+      });
+
+      test('where with listenWithMeta works', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        final captured = <int>[];
+        action.listenWithMeta((v, meta) {
+          captured.add(v);
+        }, where: (v, _) => v > 0);
+
+        action.emit(5);
+        action.emit(0);
+
+        expect(captured, [5]);
+
+        container.dispose();
+      });
+
+      test('where with listenAsync works', () async {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        final captured = <int>[];
+        action.listenAsync((v) async {
+          captured.add(v);
+        }, where: (v, _) => v > 0);
+
+        await action.emitAsync(10);
+        await action.emitAsync(-5);
+
+        expect(captured, [10]);
+
+        container.dispose();
+      });
+
+      test('where with listenManually works', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        final captured = <int>[];
+        final disposable = action.listenManually((v) {
+          captured.add(v);
+        }, where: (v, _) => v != 0);
+
+        action.emit(0);
+        action.emit(1);
+
+        expect(captured, [1]);
+
+        disposable.dispose();
+        container.dispose();
+      });
+
+      test('where with sticky filters cached delivery', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        // Emit a value, then subscribe sticky with where
+        action.emit(-1);
+
+        final captured = <int>[];
+        action.listen((v) {
+          captured.add(v);
+        }, sticky: true, where: (v, _) => v > 0);
+
+        // Cached value (-1) doesn't match where, so nothing delivered
+        expect(captured, isEmpty);
+
+        // But new emissions that match do trigger
+        action.emit(5);
+        expect(captured, [5]);
+
+        container.dispose();
+      });
+
+      test('where does not affect other listeners', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        final all = <int>[];
+        final filtered = <int>[];
+
+        action.listen((v) {
+          all.add(v);
+        });
+        action.listen((v) {
+          filtered.add(v);
+        }, where: (v, _) => v.isEven);
+
+        action.emit(1);
+        action.emit(2);
+
+        expect(all, [1, 2]);
+        expect(filtered, [2]);
+
+        container.dispose();
+      });
+
+      test('where can filter by metadata source', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        final captured = <int>[];
+        action.listenWithMeta((v, meta) {
+          captured.add(v);
+        }, where: (v, meta) => meta.source == 'trusted');
+
+        action.emit(1, metadata: BusMetadataForEmit(source: 'trusted'));
+        action.emit(2, metadata: BusMetadataForEmit(source: 'untrusted'));
+        action.emit(3, metadata: BusMetadataForEmit(source: 'trusted'));
+
+        expect(captured, [1, 3]);
+
+        container.dispose();
+      });
+    });
   });
 }

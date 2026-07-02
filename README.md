@@ -34,6 +34,7 @@ Easy, simple, and fast.
 - **Middleware pipeline** – intercept, transform, or cancel events before they reach listeners with `applyMiddleware()`
 - **Execution priority** – control listener order with the `priority` parameter (higher values run first); defaults to `0`
 - **BusMetadata** – every emission carries an auto-generated `timestamp`; optionally attach a `source` identifier and arbitrary extra data; access via `*WithMeta` listener methods
+- **Listener filter** – filter which emissions reach a listener with the `where` parameter, using the value and/or its metadata
 
 ## Installing
 
@@ -41,7 +42,7 @@ Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^1.6.2
+  event_bus_riverpod: ^2.5.1
   flutter_riverpod: ^3.0.0
 ```
 
@@ -656,6 +657,72 @@ ref.event(onUserLogin).listenWithMeta((user, meta) {
 | `listenManuallyWithMeta(cb)` | ✅ |
 | `listenManuallyAsync(cb)` | ❌ |
 | `listenManuallyAsyncWithMeta(cb)` | ✅ |
+
+### 15. Listener filter with `where`
+
+Every listen method accepts an optional `where` parameter — a predicate `bool Function(T value, BusMetadata metadata)` that decides whether the listener should fire. If `where` returns `false`, the listener is skipped for that emission. The listener is still registered and will fire on future matching emissions.
+
+**Filtering by value — your detail page update scenario:**
+
+```dart
+class UserDetailNotifier extends Notifier<User> {
+  @override
+  User build() {
+    final userId = ...; // the id of this detail page
+    ref.event(onUpdateUser).listen((updated) {
+      state = updated;
+    }, where: (u, _) => u.id == userId);
+    return fetchUser(userId);
+  }
+}
+```
+
+Each detail page only reacts to updates for its own user, even though the event is broadcast to all.
+
+**Filtering by metadata source:**
+
+```dart
+ref.event(onAddToCart).listen((item) {
+  // only process events from trusted sources
+}, where: (item, meta) => meta.source == 'payment_gateway');
+```
+
+**Filtering with complex logic (value + metadata):**
+
+```dart
+ref.event(onDataSync).listenWithMeta((data, meta) {
+  await process(data);
+}, where: (data, meta) {
+  return data.version > currentVersion &&
+         meta.source != 'legacy_system';
+});
+```
+
+**Where + sticky:**
+
+The predicate also applies to cached sticky values — a non-matching cached value is not delivered:
+
+```dart
+// Emit a value, then subscribe with where + sticky
+action.emit(-1);
+
+action.listen((v) {
+  // never called — where filters out -1
+}, sticky: true, where: (v, _) => v > 0);
+```
+
+**Available on all listen methods:**
+
+| Method | `where` param |
+|--------|--------------|
+| `listen(cb, where: ...)` | ✅ |
+| `listenAsync(cb, where: ...)` | ✅ |
+| `listenManually(cb, where: ...)` | ✅ |
+| `listenManuallyAsync(cb, where: ...)` | ✅ |
+| `listenWithMeta(cb, where: ...)` | ✅ |
+| `listenAsyncWithMeta(cb, where: ...)` | ✅ |
+| `listenManuallyWithMeta(cb, where: ...)` | ✅ |
+| `listenManuallyAsyncWithMeta(cb, where: ...)` | ✅ |
 
 ## Reference
 

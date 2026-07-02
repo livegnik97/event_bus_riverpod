@@ -11,6 +11,8 @@ typedef ListenerWithMetaCallback<T> =
 typedef ListenerWithMetaCallbackAsync<T> =
     Future<void> Function(T value, BusMetadata metadata);
 
+typedef ListenerWhere<T> = bool Function(T value, BusMetadata metadata);
+
 class _EventBus {
   final Map<int, List<_ListenerEntry>> _listeners = {};
   final Map<int, _EventCacheEntry> _lastValues = {};
@@ -24,6 +26,34 @@ class _EventBus {
     );
   }
 
+  void _tryDeliverSticky<T>(
+    int key,
+    ListenerWhere<T>? where,
+    void Function(T value) deliver,
+  ) {
+    try {
+      if (!_lastValues.containsKey(key)) return;
+      final cached = _lastValues[key]!;
+      if (where == null || where(cached.value as T, cached.metadata)) {
+        deliver(cached.value as T);
+      }
+    } catch (_) {}
+  }
+
+  void _tryDeliverStickyWithMeta<T>(
+    int key,
+    ListenerWhere<T>? where,
+    void Function(T value, BusMetadata metadata) deliver,
+  ) {
+    try {
+      if (!_lastValues.containsKey(key)) return;
+      final cached = _lastValues[key]!;
+      if (where == null || where(cached.value as T, cached.metadata)) {
+        deliver(cached.value as T, cached.metadata);
+      }
+    } catch (_) {}
+  }
+
   void listen<T>(
     Ref ref,
     int key,
@@ -32,16 +62,16 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
-    if (sticky && _lastValues.containsKey(key)) {
-      try {
-        callback(_lastValues[key]!.value as T);
-      } catch (_) {}
+    if (sticky) {
+      _tryDeliverSticky<T>(key, where, (v) => callback(v));
     }
     final entry = _ListenerEntry(
       callback,
       onError: onError,
       priority: priority,
+      where: where,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -61,17 +91,17 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
-    if (sticky && _lastValues.containsKey(key)) {
-      try {
-        callback(_lastValues[key]!.value as T);
-      } catch (_) {}
+    if (sticky) {
+      _tryDeliverSticky<T>(key, where, (v) => callback(v));
     }
     final entry = _ListenerEntry(
       callback,
       onError: onError,
       isAsync: true,
       priority: priority,
+      where: where,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -91,18 +121,17 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
-    if (sticky && _lastValues.containsKey(key)) {
-      final cached = _lastValues[key]!;
-      try {
-        callback(cached.value as T, cached.metadata);
-      } catch (_) {}
+    if (sticky) {
+      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
     }
     final entry = _ListenerEntry(
       callback,
       onError: onError,
       priority: priority,
       hasMetadata: true,
+      where: where,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -122,12 +151,10 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
-    if (sticky && _lastValues.containsKey(key)) {
-      final cached = _lastValues[key]!;
-      try {
-        callback(cached.value as T, cached.metadata);
-      } catch (_) {}
+    if (sticky) {
+      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
     }
     final entry = _ListenerEntry(
       callback,
@@ -135,6 +162,7 @@ class _EventBus {
       isAsync: true,
       priority: priority,
       hasMetadata: true,
+      where: where,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -152,16 +180,16 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
-    if (sticky && _lastValues.containsKey(key)) {
-      try {
-        callback(_lastValues[key]!.value as T);
-      } catch (_) {}
+    if (sticky) {
+      _tryDeliverSticky<T>(key, where, (v) => callback(v));
     }
     final entry = _ListenerEntry(
       callback,
       onError: onError,
       priority: priority,
+      where: where,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -177,17 +205,17 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
-    if (sticky && _lastValues.containsKey(key)) {
-      try {
-        callback(_lastValues[key]!.value as T);
-      } catch (_) {}
+    if (sticky) {
+      _tryDeliverSticky<T>(key, where, (v) => callback(v));
     }
     final entry = _ListenerEntry(
       callback,
       onError: onError,
       isAsync: true,
       priority: priority,
+      where: where,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -203,18 +231,17 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
-    if (sticky && _lastValues.containsKey(key)) {
-      final cached = _lastValues[key]!;
-      try {
-        callback(cached.value as T, cached.metadata);
-      } catch (_) {}
+    if (sticky) {
+      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
     }
     final entry = _ListenerEntry(
       callback,
       onError: onError,
       priority: priority,
       hasMetadata: true,
+      where: where,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -230,12 +257,10 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
-    if (sticky && _lastValues.containsKey(key)) {
-      final cached = _lastValues[key]!;
-      try {
-        callback(cached.value as T, cached.metadata);
-      } catch (_) {}
+    if (sticky) {
+      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
     }
     final entry = _ListenerEntry(
       callback,
@@ -243,6 +268,7 @@ class _EventBus {
       isAsync: true,
       priority: priority,
       hasMetadata: true,
+      where: where,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -276,6 +302,23 @@ class _EventBus {
 
     for (final entry in sorted) {
       if (entry.isDisposed) continue;
+
+      bool canContinue = true;
+      if (entry.where != null) {
+        try {
+          canContinue = (entry.where! as bool Function(T, BusMetadata))(
+            value,
+            metadata,
+          );
+        } catch (e, st) {
+          canContinue = false;
+          if (kDebugMode) {
+            log('[event_bus_riverpod] Error in where: $e\n$st');
+          }
+        }
+      }
+      if (!canContinue) continue;
+
       try {
         if (entry.hasMetadata) {
           entry.callback(value, metadata);
@@ -303,6 +346,23 @@ class _EventBus {
 
     for (final entry in sorted) {
       if (entry.isDisposed) continue;
+
+      bool canContinue = true;
+      if (entry.where != null) {
+        try {
+          canContinue = (entry.where! as bool Function(T, BusMetadata))(
+            value,
+            metadata,
+          );
+        } catch (e, st) {
+          canContinue = false;
+          if (kDebugMode) {
+            log('[event_bus_riverpod] Error in where: $e\n$st');
+          }
+        }
+      }
+      if (!canContinue) continue;
+
       if (entry.isAsync) {
         futures.add(() async {
           try {
@@ -465,6 +525,7 @@ class _ListenerEntry {
   final dynamic callback;
   final void Function(Object, StackTrace)? onError;
   final int priority;
+  final dynamic where;
   bool isDisposed = false;
   bool isAsync = false;
   bool hasMetadata = false;
@@ -475,6 +536,7 @@ class _ListenerEntry {
     this.isAsync = false,
     this.priority = 0,
     this.hasMetadata = false,
+    this.where,
   });
 
   void markAsDisposed() => isDisposed = true;

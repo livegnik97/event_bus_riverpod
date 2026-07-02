@@ -1,3 +1,14 @@
+## 2.5.1
+
+* All features from README sections 11 through 15:
+* **11 — Sticky events**: cache the last emitted value and deliver it to new subscribers with `sticky: true` on all listen methods. New `clearSticky()` to clear the cache without removing listeners.
+* **12 — Middleware pipeline**: intercept, transform, or cancel events before they reach listeners with `applyMiddleware()`. Each middleware can log, modify the value, or cancel by not calling `next()`. New `clearMiddlewares()` to remove all middlewares.
+* **13 — Execution priority**: added `priority` parameter to all listen methods; higher values run first (default `0`), negative values supported.
+* **14 — BusMetadata**: every emission carries an auto-generated `timestamp`; optionally attach a `source` and arbitrary `extraData` via `BusMetadataForEmit`. Access metadata with `*WithMeta` listener methods. `emit()` and `emitAsync()` accept an optional `metadata:` argument. Sticky cache preserves metadata.
+* **15 — Listener filter with `where`**: all listen methods accept a `where` predicate `bool Function(T value, BusMetadata metadata)` to conditionally receive emissions. Errors in `where` are caught and logged per-listener. Sticky delivery respects the filter.
+* Safer sticky delivery — all sticky callback invocations are wrapped in `try/catch`.
+* Updated API documentation with examples for all new parameters.
+
 ## 1.6.2
 
 * Added `onError` callback to `listen()`, `listenManually()`, and `stream()` for per-listener error handling.

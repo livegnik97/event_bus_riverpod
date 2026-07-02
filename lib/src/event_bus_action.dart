@@ -50,11 +50,19 @@ abstract class EventBusAction<T> {
   ///   log('Caught: $error');
   /// });
   /// ```
+  ///
+  /// Use [where] to filter which emissions trigger the callback:
+  /// ```dart
+  /// ref.event(onCounter).listenManually((v) {
+  ///   print(v); // only triggered when v > 0
+  /// }, where: (v, _) => v > 0);
+  /// ```
   ListenerDisposable listenManually(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   });
 
   /// Subscribes to this event and returns a [ListenerDisposable]
@@ -73,6 +81,7 @@ abstract class EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   });
 
   /// Subscribes to this event with an async callback and returns a [ListenerDisposable].
@@ -113,11 +122,19 @@ abstract class EventBusAction<T> {
   ///   log('Caught: $error');
   /// });
   /// ```
+  ///
+  /// Use [where] to filter which emissions trigger the callback:
+  /// ```dart
+  /// ref.event(onCounter).listenManuallyAsync((v) async {
+  ///   await log(v);
+  /// }, where: (v, _) => v > 0);
+  /// ```
   ListenerDisposable listenManuallyAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   });
 
   /// Subscribes to this event with an async callback and returns a
@@ -130,13 +147,14 @@ abstract class EventBusAction<T> {
   ///     log('Emitted at ${meta.timestamp} from ${meta.source}');
   ///   },
   /// );
-  /// disposable.dispose();
-  /// ```
-  ListenerDisposable listenManuallyAsyncWithMeta(
+/// disposable.dispose();
+/// ```
+ListenerDisposable listenManuallyAsyncWithMeta(
     ListenerWithMetaCallbackAsync<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   });
 
   /// Fires the event, delivering [value] to all active listeners.
@@ -273,11 +291,21 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   ///   });
   /// });
   /// ```
+  ///
+  /// Use [where] to filter which emissions trigger the callback:
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listen((msg) {
+  ///     log(msg);
+  ///   }, where: (msg, _) => msg.isNotEmpty);
+  /// });
+  /// ```
   void listen(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     bus.listen(
@@ -287,6 +315,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -297,14 +326,15 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   /// final provider = Provider<void>((ref) {
   ///   ref.event(onGreeting).listenWithMeta((msg, meta) {
   ///     log('$msg at ${meta.timestamp}');
-  ///   });
-  /// });
-  /// ```
-  void listenWithMeta(
+/// });
+/// });
+/// ```
+void listenWithMeta(
     ListenerWithMetaCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     bus.listenWithMeta(
@@ -314,6 +344,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -362,11 +393,21 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   ///   });
   /// });
   /// ```
+  ///
+  /// Use [where] to filter which emissions trigger the callback:
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listenAsync((msg) async {
+  ///     await log(msg);
+  ///   }, where: (msg, _) => msg.isNotEmpty);
+  /// });
+  /// ```
   void listenAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     bus.listenAsync(
@@ -376,6 +417,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -387,14 +429,15 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   ///   ref.event(onGreeting).listenAsyncWithMeta((msg, meta) async {
   ///     await save(msg);
   ///     log('Received at ${meta.timestamp}');
-  ///   });
-  /// });
-  /// ```
-  void listenAsyncWithMeta(
+/// });
+/// });
+/// ```
+void listenAsyncWithMeta(
     ListenerWithMetaCallbackAsync<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     bus.listenAsyncWithMeta(
@@ -404,6 +447,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -413,6 +457,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.on(
@@ -421,6 +466,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -430,6 +476,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.onWithMeta(
@@ -438,6 +485,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -447,6 +495,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.onAsync(
@@ -455,6 +504,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -464,6 +514,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.onAsyncWithMeta(
@@ -535,6 +586,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.on(
@@ -543,6 +595,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -552,6 +605,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.onWithMeta(
@@ -560,6 +614,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -569,6 +624,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.onAsync(
@@ -577,6 +633,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -586,6 +643,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
+    ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.onAsyncWithMeta(
