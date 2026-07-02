@@ -28,6 +28,7 @@ Easy, simple, and fast.
 - **Error isolation** – a failing callback never breaks other listeners
 - **Error handling** – catch errors per-listener with `onError` callback
 - **Stream API** – consume events as a `Stream<T>` for composition and `StreamBuilder`
+- **Robust key routing** – events are internally routed with `Type` hashing instead of string interpolation, ensuring platform-independent key generation
 
 ## Installing
 
