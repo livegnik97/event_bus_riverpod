@@ -90,6 +90,26 @@ abstract class EventBusAction<T> {
   /// ```
   void clearSticky();
 
+  /// Registers a middleware that intercepts events before they reach listeners.
+  ///
+  /// Middlewares run in FIFO order. Each middleware can modify the value or
+  /// cancel the event by not calling [next]. Returns a [ListenerDisposable]
+  /// to remove the middleware.
+  ///
+  /// ```dart
+  /// final disposable = ref.event(onCounter).applyMiddleware((value, next) {
+  ///   log('Event: $value');
+  ///   next(value + 1);
+  /// });
+  ///
+  /// // Remove the middleware when no longer needed
+  /// disposable.dispose();
+  /// ```
+  ListenerDisposable applyMiddleware(EventMiddleware<T> middleware);
+
+  /// Removes all middlewares registered for this event.
+  void clearMiddlewares();
+
   /// Whether there is at least one active listener for this event.
   ///
   /// ```dart
@@ -195,6 +215,17 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   }
 
   @override
+  ListenerDisposable applyMiddleware(EventMiddleware<T> middleware) {
+    final bus = ref.read(eventBusProvider);
+    return bus.applyMiddleware(event.key, middleware);
+  }
+
+  @override
+  void clearMiddlewares() {
+    ref.read(eventBusProvider).clearMiddlewares(event.key);
+  }
+
+  @override
   bool get hasClients {
     return ref.read(eventBusProvider).hasClients(event.key);
   }
@@ -253,6 +284,17 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   @override
   void clearSticky() {
     ref.read(eventBusProvider).clearSticky(event.key);
+  }
+
+  @override
+  ListenerDisposable applyMiddleware(EventMiddleware<T> middleware) {
+    final bus = ref.read(eventBusProvider);
+    return bus.applyMiddleware(event.key, middleware);
+  }
+
+  @override
+  void clearMiddlewares() {
+    ref.read(eventBusProvider).clearMiddlewares(event.key);
   }
 
   @override

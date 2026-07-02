@@ -407,13 +407,13 @@ void main() {
       // Llamamos a stream() pero nunca a .listen()
       globalRef.event(EventBusConstants.onSecureInt).stream();
 
-      // No debería haber listeners registrados
+      // Should have no registered listeners
       final hasClientsAfter = globalRef
           .event(EventBusConstants.onSecureInt)
           .hasClients;
       expect(hasClientsAfter, false);
 
-      // Emitir no debería causar errores ni entregar nada
+      // Emitting should not cause errors or deliver anything
       globalRef.event(EventBusConstants.onSecureInt).emit(42);
 
       container.dispose();
@@ -431,7 +431,7 @@ void main() {
           .event(EventBusConstants.onSecureInt)
           .stream();
 
-      // No debería haber listeners
+      // Should have no listeners
       expect(
         globalRef.event(EventBusConstants.onSecureInt).hasClients,
         false,
@@ -440,7 +440,7 @@ void main() {
       // Ahora suscribirse
       final sub = stream.listen((v) => captured.add(v));
 
-      // Ahora sí debería haber listener
+      // Now there should be a listener
       expect(
         globalRef.event(EventBusConstants.onSecureInt).hasClients,
         true,
@@ -817,6 +817,210 @@ void main() {
       container.read(listenerProvider);
 
       expect(captured, [3]);
+
+      container.dispose();
+    });
+
+    test('middleware runs before listener and can transform value', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.applyMiddleware((value, next) {
+        next(value * 2);
+      });
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        });
+      });
+      container.read(listenerProvider);
+
+      action.emit(21);
+      expect(captured, [42]);
+
+      container.dispose();
+    });
+
+    test('middleware can cancel event by not calling next', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.applyMiddleware((value, next) {
+        // no llamar next → evento cancelado
+      });
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        });
+      });
+      container.read(listenerProvider);
+
+      action.emit(42);
+      expect(captured, isEmpty);
+
+      container.dispose();
+    });
+
+    test('multiple middlewares run in FIFO order', () {
+      final log = <String>[];
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.applyMiddleware((value, next) {
+        log.add('first');
+        next(value + 1);
+      });
+      action.applyMiddleware((value, next) {
+        log.add('second');
+        next(value * 2);
+      });
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        });
+      });
+      container.read(listenerProvider);
+
+      action.emit(5);
+      expect(log, ['first', 'second']);
+      expect(captured, [12]); // (5 + 1) * 2
+
+      container.dispose();
+    });
+
+    test('middleware can be removed via ListenerDisposable', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final disposable = action.applyMiddleware((value, next) {
+        next(value * 10);
+      });
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        });
+      });
+      container.read(listenerProvider);
+
+      action.emit(1);
+      expect(captured, [10]);
+
+      disposable.dispose();
+
+      action.emit(2);
+      expect(captured, [10, 2]);
+
+      container.dispose();
+    });
+
+    test('middleware works with emitAsync', () async {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.applyMiddleware((value, next) {
+        next(value * 3);
+      });
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
+          captured.add(v);
+        });
+      });
+      container.read(listenerProvider);
+
+      await action.emitAsync(7);
+      expect(captured, [21]);
+
+      container.dispose();
+    });
+
+    test('middleware affects sticky cached value', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.applyMiddleware((value, next) {
+        next(value * 2);
+      });
+
+      action.emit(10);
+
+      // Nuevo listener con sticky recibe el valor post-middleware
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+
+      expect(captured, [20]);
+
+      container.dispose();
+    });
+
+    test('middleware cancellation also prevents sticky cache', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.applyMiddleware((value, next) {
+        // no llamar next → evento cancelado, no se cachea
+      });
+
+      action.emit(42);
+
+      final captured = <int>[];
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+
+      expect(captured, isEmpty);
 
       container.dispose();
     });

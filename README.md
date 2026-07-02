@@ -31,6 +31,7 @@ Easy, simple, and fast.
 - **Stream API** – consume events as a `Stream<T>` for composition and `StreamBuilder`
 - **Robust key routing** – events are internally routed with `Type` hashing instead of string interpolation, ensuring platform-independent key generation
 - **Sticky events** – cache the last emitted value and deliver it to new subscribers with `sticky: true`
+- **Middleware pipeline** – intercept, transform, or cancel events before they reach listeners with `applyMiddleware()`
 
 ## Installing
 
@@ -303,7 +304,7 @@ class LoginNotifier {
 }
 
 // Cart provider — restore cart asynchronously
-final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
+final cartProvider = NotifierProvider<CartNotifier, CartState>((ref) {
   ref.event(onUserLogin).listenAsync((user) async {
     final cart = await _api.restoreCart(user.id);
     ref.read(cartProvider.notifier).setCart(cart);
@@ -312,7 +313,7 @@ final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
 });
 
 // Preferences provider — load preferences asynchronously
-final preferencesProvider = StateNotifierProvider<PrefsNotifier, PrefsState>((ref) {
+final preferencesProvider = NotifierProvider<PrefsNotifier, PrefsState>((ref) {
   ref.event(onUserLogin).listenAsync((user) async {
     final prefs = await _api.fetchPreferences(user.id);
     ref.read(preferencesProvider.notifier).setPrefs(prefs);
@@ -377,11 +378,11 @@ class LoginScreen extends ConsumerWidget {
   }
 }
 
-// Profile provider — creado DESPUÉS del login (lazy, nueva ruta, etc.)
+// Profile provider — created AFTER login (lazy, new route, etc.)
 final profileProvider = Provider<Profile>((ref) {
   User? currentUser;
 
-  // sticky: true → recibe el último usuario inmediatamente si ya existe
+  // sticky: true → receives the last user immediately if one exists
   ref.event(onUserLogin).listen((user) {
     currentUser = user;
     // ...
@@ -420,6 +421,69 @@ ref.event(onUserLogin).clearSticky(); // next sticky subscriber won't receive an
 // Or clear everything (listeners + sticky values)
 ref.event(onUserLogin).clearListeners();
 ```
+
+### 12. Middleware pipeline
+
+Middleware intercepts events **before** they reach listeners. Each middleware can log, transform, or cancel the event by deciding whether to call `next()`.
+
+**Scenario**: E-commerce app with logging, validation, and currency conversion on cart events.
+
+```dart
+final onAddToCart = EventBusIdentifier<CartItem>('onAddToCart');
+
+final cartMiddlewareProvider = Provider<void>((ref) {
+  // Middleware 1 — logging (does not modify the value)
+  ref.event(onAddToCart).applyMiddleware((item, next) {
+    log('[Cart] Adding: ${item.productId} x${item.quantity}');
+    next(item);
+  });
+
+  // Middleware 2 — validation (cancels if user is banned)
+  ref.event(onAddToCart).applyMiddleware((item, next) {
+    if (userIsBanned) {
+      log('[Cart] User banned, blocked');
+      return; // does not call next → event cancelled
+    }
+    next(item);
+  });
+
+  // Middleware 3 — transformation (converts price to local currency)
+  ref.event(onAddToCart).applyMiddleware((item, next) {
+    final converted = item.copyWith(price: item.price * exchangeRate);
+    next(converted);
+  });
+});
+
+// Listeners receive the already processed value
+final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>((ref) {
+  ref.event(onAddToCart).listen((item) {
+    ref.read(cartProvider.notifier).add(item);
+  });
+  return CartNotifier();
+});
+```
+
+**Removing a middleware**:
+
+```dart
+final disposable = ref.event(onAddToCart).applyMiddleware((item, next) {
+  log('Temporary logging');
+  next(item);
+});
+
+// Stop logging
+disposable.dispose();
+
+// Or remove all middlewares from the event.
+ref.event(onAddToCart).clearMiddlewares();
+```
+
+**Middleware API reference**:
+
+| Method | Description |
+|--------|-------------|
+| `applyMiddleware(middleware)` | Registers a middleware, returns `ListenerDisposable` |
+| `clearMiddlewares()` | Removes all middlewares from the event. |
 
 ## Reference
 

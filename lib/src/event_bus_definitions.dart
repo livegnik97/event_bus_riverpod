@@ -1,12 +1,14 @@
 part of './event_bus_provider.dart';
 
-// Definimos el tipo de callback genérico
+// Generic callback type definitions
 typedef ListenerCallback<T> = void Function(T value);
 typedef ListenerCallbackAsync<T> = Future<void> Function(T value);
+typedef EventMiddleware<T> = void Function(T value, void Function(T value) next);
 
 class _EventBus {
   final Map<int, List<_ListenerEntry>> _listeners = {};
   final Map<int, Object?> _lastValues = {};
+  final Map<int, List<_MiddlewareEntry>> _middlewares = {};
 
   void listen<T>(
     Ref ref,
@@ -102,7 +104,7 @@ class _EventBus {
     }
   }
 
-  void emit<T>(int key, T value) {
+  void _notifySync<T>(int key, T value) {
     _lastValues[key] = value;
     final listeners = _listeners[key];
     if (listeners == null) return;
@@ -120,7 +122,7 @@ class _EventBus {
     if (listeners.isEmpty) _listeners.remove(key);
   }
 
-  Future<void> emitAsync<T>(int key, T value) async {
+  Future<void> _notifyAsync<T>(int key, T value) async {
     _lastValues[key] = value;
     final listeners = _listeners[key];
     if (listeners == null) return;
@@ -150,6 +152,65 @@ class _EventBus {
 
     listeners.removeWhere((entry) => entry.isDisposed);
     if (listeners.isEmpty) _listeners.remove(key);
+  }
+
+  void _emitThroughMiddleware<T>(int key, T value, void Function(T) onDelivered) {
+    final chain = _middlewares[key];
+    if (chain == null || chain.isEmpty) {
+      onDelivered(value);
+      return;
+    }
+
+    int i = 0;
+    void next(T val) {
+      if (i < chain.length) {
+        (chain[i++].callback as EventMiddleware<T>)(val, next);
+      } else {
+        onDelivered(val);
+      }
+    }
+    next(value);
+  }
+
+  void emit<T>(int key, T value) {
+    _emitThroughMiddleware(key, value, (finalValue) {
+      _notifySync(key, finalValue);
+    });
+  }
+
+  Future<void> emitAsync<T>(int key, T value) async {
+    await _emitThroughMiddlewareAsync(key, value);
+  }
+
+  Future<void> _emitThroughMiddlewareAsync<T>(int key, T value) async {
+    final chain = _middlewares[key];
+    if (chain == null || chain.isEmpty) {
+      await _notifyAsync(key, value);
+      return;
+    }
+
+    final completer = Completer<void>();
+    int i = 0;
+    void next(T val) {
+      if (i < chain.length) {
+        (chain[i++].callback as EventMiddleware<T>)(val, next);
+      } else {
+        _notifyAsync(key, val).then((_) => completer.complete());
+      }
+    }
+    next(value);
+    await completer.future;
+  }
+
+  ListenerDisposable applyMiddleware<T>(int key, EventMiddleware<T> middleware) {
+    final entry = _MiddlewareEntry(middleware);
+    _middlewares.putIfAbsent(key, () => []).add(entry);
+    return ListenerDisposable(() {
+      _middlewares[key]?.remove(entry);
+      if (_middlewares[key]?.isEmpty ?? false) {
+        _middlewares.remove(key);
+      }
+    });
   }
 
   Stream<T> stream<T>(int key) {
@@ -191,9 +252,12 @@ class _EventBus {
 
   void clearSticky(int key) => _lastValues.remove(key);
 
+  void clearMiddlewares(int key) => _middlewares.remove(key);
+
   void clearAll() {
     _listeners.clear();
     _lastValues.clear();
+    _middlewares.clear();
   }
 }
 
@@ -206,4 +270,9 @@ class _ListenerEntry {
   _ListenerEntry(this.callback, {this.onError, this.isAsync = false});
 
   void markAsDisposed() => isDisposed = true;
+}
+
+class _MiddlewareEntry {
+  final dynamic callback;
+  _MiddlewareEntry(this.callback);
 }
