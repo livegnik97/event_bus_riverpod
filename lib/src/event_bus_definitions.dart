@@ -4,7 +4,7 @@ part of './event_bus_provider.dart';
 typedef ListenerCallback<T> = void Function(T value);
 
 class _EventBus {
-  final Map<String, List<_ListenerEntry>> _listeners = {};
+  final Map<int, List<_ListenerEntry>> _listeners = {};
 
   void listen<T>(
     Ref ref,
@@ -107,7 +107,7 @@ class _EventBus {
     return false;
   }
 
-  void _removeListener(String key, _ListenerEntry entry) {
+  void _removeListener(int key, _ListenerEntry entry) {
     entry.markAsDisposed();
     _listeners[key]?.remove(entry);
     if (_listeners[key]?.isEmpty ?? false) {
@@ -115,7 +115,7 @@ class _EventBus {
     }
   }
 
-  String _buildKey<T>(String eventName) => '$eventName${T.toString()}';
+  int _buildKey<T>(String eventName) => Object.hash(eventName, T);
 
   void clearAll() => _listeners.clear();
 }
