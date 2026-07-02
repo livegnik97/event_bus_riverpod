@@ -126,6 +126,19 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     bus.listen(ref, event.key, callback, onError: onError, sticky: sticky);
   }
 
+  /// Subscribes to this event with an async callback and **automatic disposal**
+  /// tied to the [Ref].
+  ///
+  /// The listener is cleaned up when the provider that owns [ref] is
+  /// invalidated or its container disposed. No manual unsubscribe needed.
+  ///
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listenAsync((msg) async {
+  ///     await saveToLog(msg);
+  ///   });
+  /// });
+  /// ```
   void listenAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
