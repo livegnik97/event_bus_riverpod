@@ -254,6 +254,34 @@ ref.event(EventBusConstants.onUserAgeChanged).stream(
 ).listen((age) => print('Age: $age'));
 ```
 
+### 9. Clear all listeners of an event
+
+Use `clearListeners()` to remove all listeners registered for a specific event without affecting other events or the bus itself.
+
+```dart
+ref.event(EventBusConstants.onUserAgeChanged).listen((age) {
+  print('Age: $age');
+});
+
+ref.event(EventBusConstants.onUserAgeChanged).listen((age) {
+  print('Age again: $age');
+});
+
+// Remove all listeners for onUserAgeChanged
+ref.event(EventBusConstants.onUserAgeChanged).clearListeners();
+
+// Other events remain unaffected
+ref.event(EventBusConstants.onUserNameChanged).listen((name) {
+  print('Name: $name');
+});
+```
+
+After calling `clearListeners()`, the event no longer has active listeners:
+
+```dart
+print(ref.event(EventBusConstants.onUserAgeChanged).hasClients); // false
+```
+
 ## Reference
 
 | Extension | Available on | `listen()` | `listenManually()` | Auto-dispose |
