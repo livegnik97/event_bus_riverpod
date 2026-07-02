@@ -274,9 +274,87 @@ After calling `clearListeners()`, the event no longer has active listeners:
 print(ref.event(EventBusConstants.onUserAgeChanged).hasClients); // false
 ```
 
+### 10. Async listeners
+
+When a listener needs to perform asynchronous work (e.g., API calls, database operations), use `listenAsync()` instead of `listen()`. The event bus tracks async listeners separately and exposes `emitAsync()` that **awaits all async listeners** before resolving.
+
+**Scenario**: After a user logs in, multiple providers need to fetch data (cart, preferences, notifications) before navigating to the home screen.
+
+```dart
+// Define the event
+final onUserLogin = EventBusIdentifier<User>('onUserLogin');
+
+// Login provider — emit and wait
+final loginProvider = Provider.notifier<LoginNotifier>((ref) {
+  return LoginNotifier(ref);
+});
+
+class LoginNotifier {
+  final Ref ref;
+  LoginNotifier(this.ref);
+
+  Future<void> login(String email, String password) async {
+    final user = await _api.login(email, password);
+    await ref.event(onUserLogin).emitAsync(user); // ✅ waits for all listeners
+    navigateToHome(); // safe — data is ready
+  }
+}
+
+// Cart provider — restore cart asynchronously
+final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
+  ref.event(onUserLogin).listenAsync((user) async {
+    final cart = await _api.restoreCart(user.id);
+    ref.read(cartProvider.notifier).setCart(cart);
+  });
+  return CartNotifier();
+});
+
+// Preferences provider — load preferences asynchronously
+final preferencesProvider = StateNotifierProvider<PrefsNotifier, PrefsState>((ref) {
+  ref.event(onUserLogin).listenAsync((user) async {
+    final prefs = await _api.fetchPreferences(user.id);
+    ref.read(preferencesProvider.notifier).setPrefs(prefs);
+  });
+  return PrefsNotifier();
+});
+```
+
+**Async API overview:**
+
+| Context | Method | Auto-dispose | Returns |
+|---------|--------|-------------|---------|
+| `Ref` | `listenAsync(cb)` | ✅ (via `ref.onDispose`) | `void` |
+| `Ref` | `listenManuallyAsync(cb)` | ❌ (manual) | `ListenerDisposable` |
+| `WidgetRef` | `listenManuallyAsync(cb)` | ❌ (manual) | `ListenerDisposable` |
+| Both | `emitAsync(value)` | — | `Future<void>` |
+
+**Error handling**: Same `onError` callback works with async listeners:
+
+```dart
+ref.event(onUserLogin).listenAsync((user) async {
+  throw Exception('Failed to process user');
+}, onError: (error, stackTrace) {
+  log('Async listener error: $error', stackTrace: stackTrace);
+});
+```
+
+**Mixing sync and async listeners**: `emitAsync()` runs sync listeners first, then awaits all async listeners in parallel. Sync listeners are not awaited.
+
+```dart
+ref.event(onUserLogin).listen((user) {
+  log('User logged in: ${user.name}'); // runs synchronously
+});
+
+ref.event(onUserLogin).listenAsync((user) async {
+  await _fetchData(); // awaited by emitAsync
+});
+
+await ref.event(onUserLogin).emitAsync(user); // awaits only async listeners
+```
+
 ## Reference
 
-| Extension | Available on | `listen()` | `listenManually()` | Auto-dispose |
-|-----------|-------------|------------|--------------------|--------------|
-| `EventBusForRef` | `Ref` | ✅ | ✅ | ✅ (via `ref.onDispose`) |
-| `EventBusForWidgetRef` | `WidgetRef` | ❌ | ✅ | Manual |
+| Extension | Available on | Sync | Async | Auto-dispose |
+|-----------|-------------|------|-------|-------------|
+| `EventBusForRef` | `Ref` | `listen()` · `listenManually()` | `listenAsync()` · `listenManuallyAsync()` | ✅ (via `ref.onDispose`) |
+| `EventBusForWidgetRef` | `WidgetRef` | `listenManually()` | `listenManuallyAsync()` | Manual |
