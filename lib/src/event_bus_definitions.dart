@@ -11,9 +11,10 @@ class _EventBus {
     String eventName,
     ListenerCallback<T> callback, {
     bool autoDispose = true,
+    void Function(Object, StackTrace)? onError,
   }) {
     final key = _buildKey<T>(eventName);
-    final entry = _ListenerEntry(callback);
+    final entry = _ListenerEntry(callback, onError: onError);
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
@@ -26,9 +27,13 @@ class _EventBus {
   }
 
   // Versión manual que devuelve un disposer
-  ListenerDisposable on<T>(String eventName, ListenerCallback<T> callback) {
+  ListenerDisposable on<T>(
+    String eventName,
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+  }) {
     final key = _buildKey<T>(eventName);
-    final entry = _ListenerEntry(callback);
+    final entry = _ListenerEntry(callback, onError: onError);
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
@@ -48,8 +53,15 @@ class _EventBus {
         if (!entry.isDisposed) {
           try {
             entry.callback(value);
-            // (entry.callback as ListenerCallback<T>)(value);
-          } catch (_) {}
+          } catch (e, st) {
+            try {
+              if (entry.onError != null) {
+                entry.onError!(e, st);
+              } else if (kDebugMode) {
+                log('[event_bus_riverpod] Error in listener: $e\n$st');
+              }
+            } catch (_) {}
+          }
         }
       }
 
@@ -91,9 +103,10 @@ class _EventBus {
 // Clase interna para trackear el estado de los listeners
 class _ListenerEntry {
   final dynamic callback;
+  final void Function(Object, StackTrace)? onError;
   bool isDisposed = false;
 
-  _ListenerEntry(this.callback);
+  _ListenerEntry(this.callback, {this.onError});
 
   void markAsDisposed() => isDisposed = true;
 }

@@ -217,6 +217,60 @@ void main() {
       container.dispose();
     });
 
+    test('onError is called when listener throws', () {
+      final capturedErrors = <Object>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen(
+          (v) => throw Exception('fail: $v'),
+          onError: (e, st) => capturedErrors.add(e),
+        );
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+      action.emit(42);
+
+      expect(capturedErrors.length, 1);
+      expect(capturedErrors[0].toString(), contains('fail: 42'));
+      container.dispose();
+    });
+
+    test('other listeners receive event even when one listener throws', () {
+      final captured = <int>[];
+      final capturedErrors = <Object>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen(
+          (v) => throw Exception('fail'),
+          onError: (e, st) => capturedErrors.add(e),
+        );
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        });
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+      action.emit(99);
+
+      expect(capturedErrors.length, 1);
+      expect(captured, [99]);
+      container.dispose();
+    });
+
     test('bool event type works correctly', () {
       final captured = <bool>[];
       final container = ProviderContainer();

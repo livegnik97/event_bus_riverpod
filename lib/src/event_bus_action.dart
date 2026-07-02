@@ -22,7 +22,10 @@ abstract class EventBusAction<T> {
   /// });
   /// disposable.dispose(); // unsubscribe
   /// ```
-  ListenerDisposable listenManually(ListenerCallback<T> callback);
+  ListenerDisposable listenManually(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+  });
 
   /// Fires the event, delivering [value] to all active listeners.
   ///
@@ -58,15 +61,21 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   ///   ref.event(onGreeting).listen((msg) => print(msg));
   /// });
   /// ```
-  void listen(ListenerCallback<T> callback) {
+  void listen(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+  }) {
     final bus = ref.read(eventBusProvider);
-    bus.listen(ref, event.eventName, callback);
+    bus.listen(ref, event.eventName, callback, onError: onError);
   }
 
   @override
-  ListenerDisposable listenManually(ListenerCallback<T> callback) {
+  ListenerDisposable listenManually(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+  }) {
     final bus = ref.read(eventBusProvider);
-    return bus.on(event.eventName, callback);
+    return bus.on(event.eventName, callback, onError: onError);
   }
 
   @override
@@ -90,9 +99,12 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   EventBusActionForWidgetRef({required super.event, required this.ref});
 
   @override
-  ListenerDisposable listenManually(ListenerCallback<T> callback) {
+  ListenerDisposable listenManually(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+  }) {
     final bus = ref.read(eventBusProvider);
-    return bus.on(event.eventName, callback);
+    return bus.on(event.eventName, callback, onError: onError);
   }
 
   @override
