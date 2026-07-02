@@ -31,3 +31,4 @@ migrate_working_dir/
 /coverage/
 
 pending_task.md
+FEATURE_request_*.md

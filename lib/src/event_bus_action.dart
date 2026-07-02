@@ -1,3 +1,4 @@
+import 'package:event_bus_riverpod/src/bus_metadata.dart';
 import 'package:event_bus_riverpod/src/event_bus_identifier.dart';
 import 'package:event_bus_riverpod/src/event_bus_provider.dart';
 import 'package:event_bus_riverpod/src/listener_disposable.dart';
@@ -56,6 +57,24 @@ abstract class EventBusAction<T> {
     int priority = 0,
   });
 
+  /// Subscribes to this event and returns a [ListenerDisposable]
+  /// with access to [BusMetadata].
+  ///
+  /// ```dart
+  /// final disposable = ref.event(onCounter).listenManuallyWithMeta((v, meta) {
+  ///   print(v);                       // 42
+  ///   print(meta.timestamp);          // 2026-07-02 15:30:00.123
+  ///   print(meta.source);             // "dashboard"
+  /// });
+  /// disposable.dispose();
+  /// ```
+  ListenerDisposable listenManuallyWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  });
+
   /// Subscribes to this event with an async callback and returns a [ListenerDisposable].
   ///
   /// The subscription lives until [ListenerDisposable.dispose] is called.
@@ -101,12 +120,36 @@ abstract class EventBusAction<T> {
     int priority = 0,
   });
 
+  /// Subscribes to this event with an async callback and returns a
+  /// [ListenerDisposable] with access to [BusMetadata].
+  ///
+  /// ```dart
+  /// final disposable = ref.event(onCounter).listenManuallyAsyncWithMeta(
+  ///   (v, meta) async {
+  ///     await save(v);
+  ///     log('Emitted at ${meta.timestamp} from ${meta.source}');
+  ///   },
+  /// );
+  /// disposable.dispose();
+  /// ```
+  ListenerDisposable listenManuallyAsyncWithMeta(
+    ListenerWithMetaCallbackAsync<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  });
+
   /// Fires the event, delivering [value] to all active listeners.
   ///
   /// ```dart
   /// ref.event(onCounter).emit(42);
   /// ```
-  void emit(T value);
+  ///
+  /// Optionally attach [metadata] to this emission:
+  /// ```dart
+  /// ref.event(onCounter).emit(42, metadata: BusMetadataForEmit(source: 'dashboard'));
+  /// ```
+  void emit(T value, {BusMetadataForEmit? metadata});
 
   /// Fires the event and awaits all async listeners.
   ///
@@ -116,7 +159,12 @@ abstract class EventBusAction<T> {
   /// ```dart
   /// await ref.event(onCounter).emitAsync(42);
   /// ```
-  Future<void> emitAsync(T value);
+  ///
+  /// Optionally attach [metadata] to this emission:
+  /// ```dart
+  /// await ref.event(onCounter).emitAsync(42, metadata: BusMetadataForEmit(source: 'dashboard'));
+  /// ```
+  Future<void> emitAsync(T value, {BusMetadataForEmit? metadata});
 
   /// Returns a [Stream] that emits every time this event fires.
   ///
@@ -242,6 +290,33 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     );
   }
 
+  /// Subscribes to this event with **automatic disposal** and access to
+  /// [BusMetadata].
+  ///
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listenWithMeta((msg, meta) {
+  ///     log('$msg at ${meta.timestamp}');
+  ///   });
+  /// });
+  /// ```
+  void listenWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    bus.listenWithMeta(
+      ref,
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
+  }
+
   /// Subscribes to this event with an async callback and **automatic disposal**
   /// tied to the [Ref].
   ///
@@ -304,6 +379,34 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     );
   }
 
+  /// Subscribes to this event with an async callback, **automatic disposal**,
+  /// and access to [BusMetadata].
+  ///
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listenAsyncWithMeta((msg, meta) async {
+  ///     await save(msg);
+  ///     log('Received at ${meta.timestamp}');
+  ///   });
+  /// });
+  /// ```
+  void listenAsyncWithMeta(
+    ListenerWithMetaCallbackAsync<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    bus.listenAsyncWithMeta(
+      ref,
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
+  }
+
   @override
   ListenerDisposable listenManually(
     ListenerCallback<T> callback, {
@@ -313,6 +416,23 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.on(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
+  }
+
+  @override
+  ListenerDisposable listenManuallyWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    return bus.onWithMeta(
       event.key,
       callback,
       onError: onError,
@@ -339,19 +459,38 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   }
 
   @override
+  ListenerDisposable listenManuallyAsyncWithMeta(
+    ListenerWithMetaCallbackAsync<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    return bus.onAsyncWithMeta(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
+  }
+
+  @override
   Stream<T> stream() {
     final bus = ref.read(eventBusProvider);
     return bus.stream(event.key);
   }
 
   @override
-  void emit(T value) {
-    ref.read(eventBusProvider).emit(event.key, value);
+  void emit(T value, {BusMetadataForEmit? metadata}) {
+    ref.read(eventBusProvider).emit(event.key, value, metadata: metadata);
   }
 
   @override
-  Future<void> emitAsync(T value) {
-    return ref.read(eventBusProvider).emitAsync(event.key, value);
+  Future<void> emitAsync(T value, {BusMetadataForEmit? metadata}) {
+    return ref
+        .read(eventBusProvider)
+        .emitAsync(event.key, value, metadata: metadata);
   }
 
   @override
@@ -408,6 +547,23 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   }
 
   @override
+  ListenerDisposable listenManuallyWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    return bus.onWithMeta(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
+  }
+
+  @override
   ListenerDisposable listenManuallyAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
@@ -425,19 +581,38 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   }
 
   @override
+  ListenerDisposable listenManuallyAsyncWithMeta(
+    ListenerWithMetaCallbackAsync<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    return bus.onAsyncWithMeta(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
+  }
+
+  @override
   Stream<T> stream() {
     final bus = ref.read(eventBusProvider);
     return bus.stream(event.key);
   }
 
   @override
-  void emit(T value) {
-    ref.read(eventBusProvider).emit(event.key, value);
+  void emit(T value, {BusMetadataForEmit? metadata}) {
+    ref.read(eventBusProvider).emit(event.key, value, metadata: metadata);
   }
 
   @override
-  Future<void> emitAsync(T value) {
-    return ref.read(eventBusProvider).emitAsync(event.key, value);
+  Future<void> emitAsync(T value, {BusMetadataForEmit? metadata}) {
+    return ref
+        .read(eventBusProvider)
+        .emitAsync(event.key, value, metadata: metadata);
   }
 
   @override

@@ -222,10 +222,12 @@ void main() {
       final container = ProviderContainer();
 
       final listenerProvider = Provider<void>((ref) {
-        ref.event(EventBusConstants.onSecureInt).listen(
-          (v) => throw Exception('fail: $v'),
-          onError: (e, st) => capturedErrors.add(e),
-        );
+        ref
+            .event(EventBusConstants.onSecureInt)
+            .listen(
+              (v) => throw Exception('fail: $v'),
+              onError: (e, st) => capturedErrors.add(e),
+            );
       });
 
       final action = container.read(
@@ -248,10 +250,12 @@ void main() {
       final container = ProviderContainer();
 
       final listenerProvider = Provider<void>((ref) {
-        ref.event(EventBusConstants.onSecureInt).listen(
-          (v) => throw Exception('fail'),
-          onError: (e, st) => capturedErrors.add(e),
-        );
+        ref
+            .event(EventBusConstants.onSecureInt)
+            .listen(
+              (v) => throw Exception('fail'),
+              onError: (e, st) => capturedErrors.add(e),
+            );
         ref.event(EventBusConstants.onSecureInt).listen((v) {
           captured.add(v);
         });
@@ -419,40 +423,38 @@ void main() {
       container.dispose();
     });
 
-    test('stream registers listener only on listen, not on stream creation', () async {
-      final captured = <int>[];
-      final container = ProviderContainer();
+    test(
+      'stream registers listener only on listen, not on stream creation',
+      () async {
+        final captured = <int>[];
+        final container = ProviderContainer();
 
-      late Ref globalRef;
-      container.read(Provider<void>((ref) => globalRef = ref));
+        late Ref globalRef;
+        container.read(Provider<void>((ref) => globalRef = ref));
 
-      // Crear stream sin escuchar
-      final stream = globalRef
-          .event(EventBusConstants.onSecureInt)
-          .stream();
+        // Crear stream sin escuchar
+        final stream = globalRef.event(EventBusConstants.onSecureInt).stream();
 
-      // Should have no listeners
-      expect(
-        globalRef.event(EventBusConstants.onSecureInt).hasClients,
-        false,
-      );
+        // Should have no listeners
+        expect(
+          globalRef.event(EventBusConstants.onSecureInt).hasClients,
+          false,
+        );
 
-      // Ahora suscribirse
-      final sub = stream.listen((v) => captured.add(v));
+        // Ahora suscribirse
+        final sub = stream.listen((v) => captured.add(v));
 
-      // Now there should be a listener
-      expect(
-        globalRef.event(EventBusConstants.onSecureInt).hasClients,
-        true,
-      );
+        // Now there should be a listener
+        expect(globalRef.event(EventBusConstants.onSecureInt).hasClients, true);
 
-      globalRef.event(EventBusConstants.onSecureInt).emit(1);
-      await Future(() {});
-      expect(captured, [1]);
+        globalRef.event(EventBusConstants.onSecureInt).emit(1);
+        await Future(() {});
+        expect(captured, [1]);
 
-      await sub.cancel();
-      container.dispose();
-    });
+        await sub.cancel();
+        container.dispose();
+      },
+    );
 
     test('bool event type works correctly', () {
       final captured = <bool>[];
@@ -485,12 +487,10 @@ void main() {
       final container = ProviderContainer();
 
       final listenerProvider = Provider<void>((ref) {
-        ref.event(EventBusConstants.onUserName).listenAsync(
-          (name) async {
-            await Future(() {});
-            captured.add(name);
-          },
-        );
+        ref.event(EventBusConstants.onUserName).listenAsync((name) async {
+          await Future(() {});
+          captured.add(name);
+        });
       });
 
       final action = container.read(
@@ -512,12 +512,10 @@ void main() {
       final container = ProviderContainer();
 
       final listenerProvider = Provider<void>((ref) {
-        ref.event(EventBusConstants.onSecureInt).listenAsync(
-          (v) async {
-            await Future.delayed(const Duration(milliseconds: 10));
-            log.add(v);
-          },
-        );
+        ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
+          await Future.delayed(const Duration(milliseconds: 10));
+          log.add(v);
+        });
       });
 
       final action = container.read(
@@ -543,12 +541,10 @@ void main() {
         ref.event(EventBusConstants.onSecureInt).listen((v) {
           syncLog.add(v);
         });
-        ref.event(EventBusConstants.onSecureInt).listenAsync(
-          (v) async {
-            await Future(() {});
-            asyncLog.add(v);
-          },
-        );
+        ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
+          await Future(() {});
+          asyncLog.add(v);
+        });
       });
 
       final action = container.read(
@@ -576,12 +572,10 @@ void main() {
         ),
       );
 
-      final disposable = action.listenManuallyAsync(
-        (v) async {
-          await Future(() {});
-          captured.add(v);
-        },
-      );
+      final disposable = action.listenManuallyAsync((v) async {
+        await Future(() {});
+        captured.add(v);
+      });
 
       await action.emitAsync(1);
       expect(captured, [1]);
@@ -599,13 +593,10 @@ void main() {
       final container = ProviderContainer();
 
       final listenerProvider = Provider<void>((ref) {
-        ref.event(EventBusConstants.onSecureInt).listenAsync(
-          (v) async {
-            await Future(() {});
-            throw Exception('async fail: $v');
-          },
-          onError: (e, st) => capturedErrors.add(e),
-        );
+        ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
+          await Future(() {});
+          throw Exception('async fail: $v');
+        }, onError: (e, st) => capturedErrors.add(e));
       });
 
       final action = container.read(
@@ -623,41 +614,39 @@ void main() {
       container.dispose();
     });
 
-    test('emitAsync other listeners still run when one async listener fails', () async {
-      final captured = <int>[];
-      final capturedErrors = <Object>[];
-      final container = ProviderContainer();
+    test(
+      'emitAsync other listeners still run when one async listener fails',
+      () async {
+        final captured = <int>[];
+        final capturedErrors = <Object>[];
+        final container = ProviderContainer();
 
-      final listenerProvider = Provider<void>((ref) {
-        ref.event(EventBusConstants.onSecureInt).listenAsync(
-          (v) async {
+        final listenerProvider = Provider<void>((ref) {
+          ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
             await Future(() {});
             throw Exception('fail');
-          },
-          onError: (e, st) => capturedErrors.add(e),
-        );
-        ref.event(EventBusConstants.onSecureInt).listenAsync(
-          (v) async {
+          }, onError: (e, st) => capturedErrors.add(e));
+          ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
             await Future(() {});
             captured.add(v);
-          },
+          });
+        });
+
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
         );
-      });
 
-      final action = container.read(
-        Provider<EventBusActionForRef<int>>(
-          (ref) => ref.event(EventBusConstants.onSecureInt),
-        ),
-      );
+        container.read(listenerProvider);
 
-      container.read(listenerProvider);
+        await action.emitAsync(99);
+        expect(capturedErrors.length, 1);
+        expect(captured, [99]);
 
-      await action.emitAsync(99);
-      expect(capturedErrors.length, 1);
-      expect(captured, [99]);
-
-      container.dispose();
-    });
+        container.dispose();
+      },
+    );
 
     test('sticky listen receives last value immediately', () {
       final container = ProviderContainer();
@@ -1131,6 +1120,183 @@ void main() {
       d1.dispose();
       d2.dispose();
       container.dispose();
+    });
+
+    group('metadata', () {
+      test('emit without metadata delivers timestamp', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        BusMetadata? capturedMeta;
+        action.listenWithMeta((v, meta) {
+          capturedMeta = meta;
+        });
+        action.emit(42);
+
+        expect(capturedMeta, isNotNull);
+        expect(capturedMeta!.timestamp, isA<DateTime>());
+        expect(capturedMeta!.source, isNull);
+        expect(capturedMeta!.extraData, isNull);
+
+        container.dispose();
+      });
+
+      test('emitWithMeta delivers source and extraData', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        BusMetadata? capturedMeta;
+        action.listenWithMeta((v, meta) {
+          capturedMeta = meta;
+        });
+        action.emit(
+          42,
+          metadata: BusMetadataForEmit(
+            source: 'test-screen',
+            extraData: {'key': 123},
+          ),
+        );
+
+        expect(capturedMeta!.source, 'test-screen');
+        expect(capturedMeta!.extraData, {'key': 123});
+
+        container.dispose();
+      });
+
+      test('non-meta listener still works unchanged', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        int? captured;
+        action.listen((v) {
+          captured = v;
+        });
+        action.emit(42);
+
+        expect(captured, 42);
+
+        container.dispose();
+      });
+
+      test('listenManuallyWithMeta works', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        BusMetadata? capturedMeta;
+        final disposable = action.listenManuallyWithMeta((v, meta) {
+          capturedMeta = meta;
+        });
+        action.emit(42, metadata: BusMetadataForEmit(source: 'manual'));
+
+        expect(capturedMeta!.source, 'manual');
+        disposable.dispose();
+        container.dispose();
+      });
+
+      test('listenAsyncWithMeta delivers metadata', () async {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        BusMetadata? capturedMeta;
+        action.listenAsyncWithMeta((v, meta) async {
+          capturedMeta = meta;
+        });
+        await action.emitAsync(
+          42,
+          metadata: BusMetadataForEmit(source: 'async'),
+        );
+
+        expect(capturedMeta!.source, 'async');
+        container.dispose();
+      });
+
+      test('listenManuallyAsyncWithMeta delivers metadata', () async {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        BusMetadata? capturedMeta;
+        final disposable = action.listenManuallyAsyncWithMeta((v, meta) async {
+          capturedMeta = meta;
+        });
+        await action.emitAsync(
+          42,
+          metadata: BusMetadataForEmit(source: 'manual-async'),
+        );
+
+        expect(capturedMeta!.source, 'manual-async');
+        disposable.dispose();
+        container.dispose();
+      });
+
+      test('sticky with metadata', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        // Emit with metadata, then subscribe sticky
+        action.emit(42, metadata: BusMetadataForEmit(source: 'sticky-source'));
+
+        BusMetadata? capturedMeta;
+        action.listenWithMeta((v, meta) {
+          capturedMeta = meta;
+        }, sticky: true);
+
+        expect(capturedMeta!.source, 'sticky-source');
+
+        container.dispose();
+      });
+
+      test('metadata flows through middleware to listener', () {
+        final container = ProviderContainer();
+        final action = container.read(
+          Provider<EventBusActionForRef<int>>(
+            (ref) => ref.event(EventBusConstants.onSecureInt),
+          ),
+        );
+
+        action.applyMiddleware((value, next) {
+          next(value);
+        });
+
+        BusMetadata? capturedMeta;
+        action.listenWithMeta((v, meta) {
+          capturedMeta = meta;
+        });
+        action.emit(
+          42,
+          metadata: BusMetadataForEmit(source: 'middleware-test'),
+        );
+
+        expect(capturedMeta!.source, 'middleware-test');
+        container.dispose();
+      });
     });
   });
 }

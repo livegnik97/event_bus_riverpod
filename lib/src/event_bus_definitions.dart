@@ -6,10 +6,23 @@ typedef ListenerCallbackAsync<T> = Future<void> Function(T value);
 typedef EventMiddleware<T> =
     void Function(T value, void Function(T value) next);
 
+typedef ListenerWithMetaCallback<T> =
+    void Function(T value, BusMetadata metadata);
+typedef ListenerWithMetaCallbackAsync<T> =
+    Future<void> Function(T value, BusMetadata metadata);
+
 class _EventBus {
   final Map<int, List<_ListenerEntry>> _listeners = {};
-  final Map<int, Object?> _lastValues = {};
+  final Map<int, _EventCacheEntry> _lastValues = {};
   final Map<int, List<_MiddlewareEntry>> _middlewares = {};
+
+  BusMetadata _buildMetadata(BusMetadataForEmit? emitMetadata) {
+    return BusMetadata(
+      timestamp: DateTime.now(),
+      source: emitMetadata?.source,
+      extraData: emitMetadata?.extraData,
+    );
+  }
 
   void listen<T>(
     Ref ref,
@@ -21,7 +34,9 @@ class _EventBus {
     int priority = 0,
   }) {
     if (sticky && _lastValues.containsKey(key)) {
-      callback(_lastValues[key] as T);
+      try {
+        callback(_lastValues[key]!.value as T);
+      } catch (_) {}
     }
     final entry = _ListenerEntry(
       callback,
@@ -48,13 +63,78 @@ class _EventBus {
     int priority = 0,
   }) {
     if (sticky && _lastValues.containsKey(key)) {
-      callback(_lastValues[key] as T);
+      try {
+        callback(_lastValues[key]!.value as T);
+      } catch (_) {}
     }
     final entry = _ListenerEntry(
       callback,
       onError: onError,
       isAsync: true,
       priority: priority,
+    );
+
+    _listeners.putIfAbsent(key, () => []).add(entry);
+
+    if (autoDispose) {
+      ref.onDispose(() {
+        _removeListener(key, entry);
+      });
+    }
+  }
+
+  void listenWithMeta<T>(
+    Ref ref,
+    int key,
+    ListenerWithMetaCallback<T> callback, {
+    bool autoDispose = true,
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    if (sticky && _lastValues.containsKey(key)) {
+      final cached = _lastValues[key]!;
+      try {
+        callback(cached.value as T, cached.metadata);
+      } catch (_) {}
+    }
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      priority: priority,
+      hasMetadata: true,
+    );
+
+    _listeners.putIfAbsent(key, () => []).add(entry);
+
+    if (autoDispose) {
+      ref.onDispose(() {
+        _removeListener(key, entry);
+      });
+    }
+  }
+
+  void listenAsyncWithMeta<T>(
+    Ref ref,
+    int key,
+    ListenerWithMetaCallbackAsync<T> callback, {
+    bool autoDispose = true,
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    if (sticky && _lastValues.containsKey(key)) {
+      final cached = _lastValues[key]!;
+      try {
+        callback(cached.value as T, cached.metadata);
+      } catch (_) {}
+    }
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      isAsync: true,
+      priority: priority,
+      hasMetadata: true,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -74,7 +154,9 @@ class _EventBus {
     int priority = 0,
   }) {
     if (sticky && _lastValues.containsKey(key)) {
-      callback(_lastValues[key] as T);
+      try {
+        callback(_lastValues[key]!.value as T);
+      } catch (_) {}
     }
     final entry = _ListenerEntry(
       callback,
@@ -97,13 +179,70 @@ class _EventBus {
     int priority = 0,
   }) {
     if (sticky && _lastValues.containsKey(key)) {
-      callback(_lastValues[key] as T);
+      try {
+        callback(_lastValues[key]!.value as T);
+      } catch (_) {}
     }
     final entry = _ListenerEntry(
       callback,
       onError: onError,
       isAsync: true,
       priority: priority,
+    );
+
+    _listeners.putIfAbsent(key, () => []).add(entry);
+
+    return ListenerDisposable(() {
+      _removeListener(key, entry);
+    });
+  }
+
+  ListenerDisposable onWithMeta<T>(
+    int key,
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    if (sticky && _lastValues.containsKey(key)) {
+      final cached = _lastValues[key]!;
+      try {
+        callback(cached.value as T, cached.metadata);
+      } catch (_) {}
+    }
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      priority: priority,
+      hasMetadata: true,
+    );
+
+    _listeners.putIfAbsent(key, () => []).add(entry);
+
+    return ListenerDisposable(() {
+      _removeListener(key, entry);
+    });
+  }
+
+  ListenerDisposable onAsyncWithMeta<T>(
+    int key,
+    ListenerWithMetaCallbackAsync<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+  }) {
+    if (sticky && _lastValues.containsKey(key)) {
+      final cached = _lastValues[key]!;
+      try {
+        callback(cached.value as T, cached.metadata);
+      } catch (_) {}
+    }
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      isAsync: true,
+      priority: priority,
+      hasMetadata: true,
     );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -127,8 +266,8 @@ class _EventBus {
     }
   }
 
-  void _notifySync<T>(int key, T value) {
-    _lastValues[key] = value;
+  void _notifySync<T>(int key, T value, BusMetadata metadata) {
+    _lastValues[key] = _EventCacheEntry(value, metadata);
     final listeners = _listeners[key];
     if (listeners == null) return;
 
@@ -138,7 +277,11 @@ class _EventBus {
     for (final entry in sorted) {
       if (entry.isDisposed) continue;
       try {
-        entry.callback(value);
+        if (entry.hasMetadata) {
+          entry.callback(value, metadata);
+        } else {
+          entry.callback(value);
+        }
       } catch (e, st) {
         _reportError(entry, e, st);
       }
@@ -148,8 +291,8 @@ class _EventBus {
     if (listeners.isEmpty) _listeners.remove(key);
   }
 
-  Future<void> _notifyAsync<T>(int key, T value) async {
-    _lastValues[key] = value;
+  Future<void> _notifyAsync<T>(int key, T value, BusMetadata metadata) async {
+    _lastValues[key] = _EventCacheEntry(value, metadata);
     final listeners = _listeners[key];
     if (listeners == null) return;
 
@@ -163,14 +306,22 @@ class _EventBus {
       if (entry.isAsync) {
         futures.add(() async {
           try {
-            await entry.callback(value);
+            if (entry.hasMetadata) {
+              await entry.callback(value, metadata);
+            } else {
+              await entry.callback(value);
+            }
           } catch (e, st) {
             _reportError(entry, e, st);
           }
         }());
       } else {
         try {
-          entry.callback(value);
+          if (entry.hasMetadata) {
+            entry.callback(value, metadata);
+          } else {
+            entry.callback(value);
+          }
         } catch (e, st) {
           _reportError(entry, e, st);
         }
@@ -186,11 +337,12 @@ class _EventBus {
   void _emitThroughMiddleware<T>(
     int key,
     T value,
-    void Function(T) onDelivered,
+    BusMetadata metadata,
+    void Function(T, BusMetadata) onDelivered,
   ) {
     final chain = _middlewares[key];
     if (chain == null || chain.isEmpty) {
-      onDelivered(value);
+      onDelivered(value, metadata);
       return;
     }
 
@@ -199,27 +351,37 @@ class _EventBus {
       if (i < chain.length) {
         (chain[i++].callback as EventMiddleware<T>)(val, next);
       } else {
-        onDelivered(val);
+        onDelivered(val, metadata);
       }
     }
 
     next(value);
   }
 
-  void emit<T>(int key, T value) {
-    _emitThroughMiddleware(key, value, (finalValue) {
-      _notifySync(key, finalValue);
+  void emit<T>(int key, T value, {BusMetadataForEmit? metadata}) {
+    final meta = _buildMetadata(metadata);
+    _emitThroughMiddleware(key, value, meta, (finalValue, m) {
+      _notifySync(key, finalValue, m);
     });
   }
 
-  Future<void> emitAsync<T>(int key, T value) async {
-    await _emitThroughMiddlewareAsync(key, value);
+  Future<void> emitAsync<T>(
+    int key,
+    T value, {
+    BusMetadataForEmit? metadata,
+  }) async {
+    final meta = _buildMetadata(metadata);
+    await _emitThroughMiddlewareAsync(key, value, meta);
   }
 
-  Future<void> _emitThroughMiddlewareAsync<T>(int key, T value) async {
+  Future<void> _emitThroughMiddlewareAsync<T>(
+    int key,
+    T value,
+    BusMetadata metadata,
+  ) async {
     final chain = _middlewares[key];
     if (chain == null || chain.isEmpty) {
-      await _notifyAsync(key, value);
+      await _notifyAsync(key, value, metadata);
       return;
     }
 
@@ -229,7 +391,7 @@ class _EventBus {
       if (i < chain.length) {
         (chain[i++].callback as EventMiddleware<T>)(val, next);
       } else {
-        _notifyAsync(key, val).then((_) => completer.complete());
+        _notifyAsync(key, val, metadata).then((_) => completer.complete());
       }
     }
 
@@ -305,12 +467,14 @@ class _ListenerEntry {
   final int priority;
   bool isDisposed = false;
   bool isAsync = false;
+  bool hasMetadata = false;
 
   _ListenerEntry(
     this.callback, {
     this.onError,
     this.isAsync = false,
     this.priority = 0,
+    this.hasMetadata = false,
   });
 
   void markAsDisposed() => isDisposed = true;
@@ -319,4 +483,10 @@ class _ListenerEntry {
 class _MiddlewareEntry {
   final dynamic callback;
   _MiddlewareEntry(this.callback);
+}
+
+class _EventCacheEntry {
+  final Object? value;
+  final BusMetadata metadata;
+  _EventCacheEntry(this.value, this.metadata);
 }
