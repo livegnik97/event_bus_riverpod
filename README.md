@@ -32,6 +32,7 @@ Easy, simple, and fast.
 - **Robust key routing** – events are internally routed with `Type` hashing instead of string interpolation, ensuring platform-independent key generation
 - **Sticky events** – cache the last emitted value and deliver it to new subscribers with `sticky: true`
 - **Middleware pipeline** – intercept, transform, or cancel events before they reach listeners with `applyMiddleware()`
+- **Execution priority** – control listener order with the `priority` parameter (higher values run first); defaults to `0`
 
 ## Installing
 
@@ -484,6 +485,49 @@ ref.event(onAddToCart).clearMiddlewares();
 |--------|-------------|
 | `applyMiddleware(middleware)` | Registers a middleware, returns `ListenerDisposable` |
 | `clearMiddlewares()` | Removes all middlewares from the event. |
+
+### 13. Execution priority
+
+By default listeners run in FIFO order (default priority is `0`). Use the `priority` parameter to control execution order — higher values run first.
+
+```dart
+ref.event(onCounter).listen((v) {
+  // runs first
+}, priority: 10);
+
+ref.event(onCounter).listen((v) {
+  // runs after priority 10 — default is 0
+}, priority: 0);
+```
+
+Negative values are also supported — listeners with lower priority run last:
+
+```dart
+ref.event(onCounter).listen((v) {
+  // runs after all default-priority listeners
+}, priority: -5);
+```
+
+**Available on all listen methods:**
+
+| Method | `priority` param |
+|--------|-----------------|
+| `listen(cb, priority: n)` | ✅ |
+| `listenAsync(cb, priority: n)` | ✅ |
+| `listenManually(cb, priority: n)` | ✅ |
+| `listenManuallyAsync(cb, priority: n)` | ✅ |
+
+Listeners with the same priority execute in FIFO order:
+
+```dart
+ref.event(onCounter).listen((v) {
+  print('first');
+}, priority: 5);
+
+ref.event(onCounter).listen((v) {
+  print('second'); // same priority → FIFO
+}, priority: 5);
+```
 
 ## Reference
 

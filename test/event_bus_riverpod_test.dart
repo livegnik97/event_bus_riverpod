@@ -1024,5 +1024,113 @@ void main() {
 
       container.dispose();
     });
+
+    test('priority higher runs before lower', () {
+      final log = <int>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          log.add(1);
+        }, priority: 10);
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          log.add(2);
+        }, priority: 0);
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          log.add(3);
+        }, priority: -10);
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+      action.emit(42);
+
+      expect(log, [1, 2, 3]);
+
+      container.dispose();
+    });
+
+    test('same priority preserves FIFO order', () {
+      final log = <int>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          log.add(1);
+        });
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          log.add(2);
+        });
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          log.add(3);
+        });
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+      action.emit(42);
+
+      expect(log, [1, 2, 3]);
+
+      container.dispose();
+    });
+
+    test('priority works with listenAsync and emitAsync', () async {
+      final log = <int>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
+          log.add(1);
+        }, priority: 10);
+        ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
+          log.add(2);
+        }, priority: 0);
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+      await action.emitAsync(42);
+
+      expect(log, [1, 2]);
+
+      container.dispose();
+    });
+
+    test('priority works with listenManually', () {
+      final log = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final d1 = action.listenManually((v) => log.add(1), priority: 10);
+      final d2 = action.listenManually((v) => log.add(2), priority: 0);
+
+      action.emit(42);
+      expect(log, [1, 2]);
+
+      d1.dispose();
+      d2.dispose();
+      container.dispose();
+    });
   });
 }

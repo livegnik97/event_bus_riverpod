@@ -22,10 +22,38 @@ abstract class EventBusAction<T> {
   /// });
   /// disposable.dispose(); // unsubscribe
   /// ```
+  ///
+  /// Use [sticky] to receive the last emitted value immediately:
+  /// ```dart
+  /// ref.event(onCounter).emit(42);
+  /// ref.event(onCounter).listenManually((v) {
+  ///   print(v); // 42 — received immediately
+  /// }, sticky: true);
+  /// ```
+  ///
+  /// Use [priority] to control execution order (higher runs first):
+  /// ```dart
+  /// ref.event(onCounter).listenManually((v) {
+  ///   // runs first
+  /// }, priority: 10);
+  /// ref.event(onCounter).listenManually((v) {
+  ///   // runs after priority 10
+  /// }, priority: 0);
+  /// ```
+  ///
+  /// Use [onError] to catch errors thrown by the listener:
+  /// ```dart
+  /// ref.event(onCounter).listenManually((v) {
+  ///   throw Exception('fail');
+  /// }, onError: (error, stackTrace) {
+  ///   log('Caught: $error');
+  /// });
+  /// ```
   ListenerDisposable listenManually(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   });
 
   /// Subscribes to this event with an async callback and returns a [ListenerDisposable].
@@ -39,10 +67,38 @@ abstract class EventBusAction<T> {
   /// });
   /// disposable.dispose();
   /// ```
+  ///
+  /// Use [sticky] to receive the last emitted value immediately:
+  /// ```dart
+  /// await ref.event(onCounter).emitAsync(42);
+  /// ref.event(onCounter).listenManuallyAsync((v) async {
+  ///   print(v); // 42 — received immediately
+  /// }, sticky: true);
+  /// ```
+  ///
+  /// Use [priority] to control execution order (higher runs first):
+  /// ```dart
+  /// ref.event(onCounter).listenManuallyAsync((v) async {
+  ///   // runs first
+  /// }, priority: 10);
+  /// ref.event(onCounter).listenManuallyAsync((v) async {
+  ///   // runs after priority 10
+  /// }, priority: 0);
+  /// ```
+  ///
+  /// Use [onError] to catch errors thrown by the listener:
+  /// ```dart
+  /// ref.event(onCounter).listenManuallyAsync((v) async {
+  ///   throw Exception('fail');
+  /// }, onError: (error, stackTrace) {
+  ///   log('Caught: $error');
+  /// });
+  /// ```
   ListenerDisposable listenManuallyAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   });
 
   /// Fires the event, delivering [value] to all active listeners.
@@ -137,13 +193,53 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   ///   ref.event(onGreeting).listen((msg) => print(msg));
   /// });
   /// ```
+  ///
+  /// Use [sticky] to receive the last emitted value immediately:
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listen((msg) {
+  ///     print(msg); // receives last value if one was emitted before
+  ///   }, sticky: true);
+  /// });
+  /// ```
+  ///
+  /// Use [priority] to control execution order (higher runs first):
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listen((msg) {
+  ///     // runs first
+  ///   }, priority: 10);
+  ///   ref.event(onGreeting).listen((msg) {
+  ///     // runs after priority 10
+  /// }, priority: 0);
+  /// });
+  /// ```
+  ///
+  /// Use [onError] to catch errors thrown by the listener:
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listen((msg) {
+  ///     throw Exception('fail');
+  ///   }, onError: (error, stackTrace) {
+  ///     log('Caught: $error');
+  ///   });
+  /// });
+  /// ```
   void listen(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     final bus = ref.read(eventBusProvider);
-    bus.listen(ref, event.key, callback, onError: onError, sticky: sticky);
+    bus.listen(
+      ref,
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
   }
 
   /// Subscribes to this event with an async callback and **automatic disposal**
@@ -159,13 +255,53 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   ///   });
   /// });
   /// ```
+  ///
+  /// Use [sticky] to receive the last emitted value immediately:
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listenAsync((msg) async {
+  ///     print(msg); // receives last value if one was emitted before
+  ///   }, sticky: true);
+  /// });
+  /// ```
+  ///
+  /// Use [priority] to control execution order (higher runs first):
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listenAsync((msg) async {
+  ///     // runs first
+  ///   }, priority: 10);
+  ///   ref.event(onGreeting).listenAsync((msg) async {
+  ///     // runs after priority 10
+  /// }, priority: 0);
+  /// });
+  /// ```
+  ///
+  /// Use [onError] to catch errors thrown by the listener:
+  /// ```dart
+  /// final provider = Provider<void>((ref) {
+  ///   ref.event(onGreeting).listenAsync((msg) async {
+  ///     throw Exception('fail');
+  ///   }, onError: (error, stackTrace) {
+  ///     log('Caught: $error');
+  ///   });
+  /// });
+  /// ```
   void listenAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     final bus = ref.read(eventBusProvider);
-    bus.listenAsync(ref, event.key, callback, onError: onError, sticky: sticky);
+    bus.listenAsync(
+      ref,
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
   }
 
   @override
@@ -173,9 +309,16 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.on(event.key, callback, onError: onError, sticky: sticky);
+    return bus.on(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
   }
 
   @override
@@ -183,9 +326,16 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.onAsync(event.key, callback, onError: onError, sticky: sticky);
+    return bus.onAsync(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
   }
 
   @override
@@ -245,9 +395,16 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.on(event.key, callback, onError: onError, sticky: sticky);
+    return bus.on(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
   }
 
   @override
@@ -255,9 +412,16 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.onAsync(event.key, callback, onError: onError, sticky: sticky);
+    return bus.onAsync(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+    );
   }
 
   @override

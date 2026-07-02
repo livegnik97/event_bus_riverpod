@@ -3,7 +3,8 @@ part of './event_bus_provider.dart';
 // Generic callback type definitions
 typedef ListenerCallback<T> = void Function(T value);
 typedef ListenerCallbackAsync<T> = Future<void> Function(T value);
-typedef EventMiddleware<T> = void Function(T value, void Function(T value) next);
+typedef EventMiddleware<T> =
+    void Function(T value, void Function(T value) next);
 
 class _EventBus {
   final Map<int, List<_ListenerEntry>> _listeners = {};
@@ -17,11 +18,16 @@ class _EventBus {
     bool autoDispose = true,
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     if (sticky && _lastValues.containsKey(key)) {
       callback(_lastValues[key] as T);
     }
-    final entry = _ListenerEntry(callback, onError: onError);
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      priority: priority,
+    );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
@@ -39,11 +45,17 @@ class _EventBus {
     bool autoDispose = true,
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     if (sticky && _lastValues.containsKey(key)) {
       callback(_lastValues[key] as T);
     }
-    final entry = _ListenerEntry(callback, onError: onError, isAsync: true);
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      isAsync: true,
+      priority: priority,
+    );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
@@ -59,11 +71,16 @@ class _EventBus {
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     if (sticky && _lastValues.containsKey(key)) {
       callback(_lastValues[key] as T);
     }
-    final entry = _ListenerEntry(callback, onError: onError);
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      priority: priority,
+    );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
@@ -77,11 +94,17 @@ class _EventBus {
     ListenerCallbackAsync<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
+    int priority = 0,
   }) {
     if (sticky && _lastValues.containsKey(key)) {
       callback(_lastValues[key] as T);
     }
-    final entry = _ListenerEntry(callback, onError: onError, isAsync: true);
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      isAsync: true,
+      priority: priority,
+    );
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
@@ -109,7 +132,10 @@ class _EventBus {
     final listeners = _listeners[key];
     if (listeners == null) return;
 
-    for (final entry in List.from(listeners)) {
+    final sorted = List<_ListenerEntry>.from(listeners)
+      ..sort((a, b) => b.priority.compareTo(a.priority));
+
+    for (final entry in sorted) {
       if (entry.isDisposed) continue;
       try {
         entry.callback(value);
@@ -127,9 +153,12 @@ class _EventBus {
     final listeners = _listeners[key];
     if (listeners == null) return;
 
+    final sorted = List<_ListenerEntry>.from(listeners)
+      ..sort((a, b) => b.priority.compareTo(a.priority));
+
     final futures = <Future<void>>[];
 
-    for (final entry in List.from(listeners)) {
+    for (final entry in sorted) {
       if (entry.isDisposed) continue;
       if (entry.isAsync) {
         futures.add(() async {
@@ -154,7 +183,11 @@ class _EventBus {
     if (listeners.isEmpty) _listeners.remove(key);
   }
 
-  void _emitThroughMiddleware<T>(int key, T value, void Function(T) onDelivered) {
+  void _emitThroughMiddleware<T>(
+    int key,
+    T value,
+    void Function(T) onDelivered,
+  ) {
     final chain = _middlewares[key];
     if (chain == null || chain.isEmpty) {
       onDelivered(value);
@@ -169,6 +202,7 @@ class _EventBus {
         onDelivered(val);
       }
     }
+
     next(value);
   }
 
@@ -198,11 +232,15 @@ class _EventBus {
         _notifyAsync(key, val).then((_) => completer.complete());
       }
     }
+
     next(value);
     await completer.future;
   }
 
-  ListenerDisposable applyMiddleware<T>(int key, EventMiddleware<T> middleware) {
+  ListenerDisposable applyMiddleware<T>(
+    int key,
+    EventMiddleware<T> middleware,
+  ) {
     final entry = _MiddlewareEntry(middleware);
     _middlewares.putIfAbsent(key, () => []).add(entry);
     return ListenerDisposable(() {
@@ -264,10 +302,16 @@ class _EventBus {
 class _ListenerEntry {
   final dynamic callback;
   final void Function(Object, StackTrace)? onError;
+  final int priority;
   bool isDisposed = false;
   bool isAsync = false;
 
-  _ListenerEntry(this.callback, {this.onError, this.isAsync = false});
+  _ListenerEntry(
+    this.callback, {
+    this.onError,
+    this.isAsync = false,
+    this.priority = 0,
+  });
 
   void markAsDisposed() => isDisposed = true;
 }
