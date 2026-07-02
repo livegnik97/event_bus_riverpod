@@ -26,6 +26,8 @@ Easy, simple, and fast.
 - **Dual context** – extensions on both `Ref` and `WidgetRef`
 - **Multiple listeners** – many listeners can subscribe to the same event
 - **Error isolation** – a failing callback never breaks other listeners
+- **Error handling** – catch errors per-listener with `onError` callback
+- **Stream API** – consume events as a `Stream<T>` for composition and `StreamBuilder`
 
 ## Installing
 
@@ -165,6 +167,90 @@ ref.event(onNullable).listen((value) {
 });
 
 ref.event(onNullable).emit(null);
+```
+
+### 7. Error handling with `onError`
+
+When a listener throws, other listeners are not affected. You can catch errors per-listener with `onError`:
+
+```dart
+ref.event(EventBusConstants.onUserAgeChanged).listen((age) {
+  if (age < 0) throw Exception('Invalid age: $age');
+}, onError: (error, stackTrace) {
+  log('Listener failed: $error', stackTrace: stackTrace);
+});
+```
+
+If no `onError` is provided, errors are logged to the console in debug mode via `log()`:
+
+```dart
+ref.event(EventBusConstants.onUserAgeChanged).listen((age) {
+  // If this throws, a warning is printed in debug mode
+});
+```
+
+The `onError` parameter is also available on `listenManually()`:
+
+```dart
+final disposable = ref.event(EventBusConstants.onUserAgeChanged).listenManually((age) {
+  throw Exception('Oops');
+}, onError: (error, stackTrace) {
+  print('Caught: $error');
+});
+```
+
+### 8. Stream API
+
+Each event can be consumed as a `Stream<T>`, enabling stream composition and `StreamBuilder` widgets.
+
+```dart
+// StreamBuilder
+StreamBuilder<int>(
+  stream: ref.event(EventBusConstants.onUserAgeChanged).stream(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) return const Text('No data');
+    return Text('Age: ${snapshot.data}');
+  },
+);
+```
+
+```dart
+// Stream composition
+ref.event(EventBusConstants.onUserAgeChanged).stream()
+  .where((age) => age >= 18)
+  .map((age) => 'Adult aged $age')
+  .listen((msg) => print(msg));
+```
+
+```dart
+// Inside a provider (memoized via Riverpod)
+final ageStreamProvider = Provider<Stream<int>>((ref) {
+  return ref.event(EventBusConstants.onUserAgeChanged).stream();
+});
+```
+
+```dart
+// Manual lifecycle with error handling
+final subscription = ref.event(EventBusConstants.onUserAgeChanged).stream().listen(
+  (age) {
+    print('Age: $age');
+  },
+  onError: (error, stackTrace) {
+    log('Stream error: $error', stackTrace: stackTrace);
+  },
+);
+
+// Clean up when done
+subscription.cancel();
+```
+
+```dart
+// Catch errors from the bus with onError parameter
+ref.event(EventBusConstants.onUserAgeChanged).stream(
+  onError: (error, stackTrace) {
+    log('Bus error: $error', stackTrace: stackTrace);
+  },
+).listen((age) => print('Age: $age'));
 ```
 
 ## Reference
