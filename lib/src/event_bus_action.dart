@@ -27,12 +27,38 @@ abstract class EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
   });
 
+  /// Subscribes to this event with an async callback and returns a [ListenerDisposable].
+  ///
+  /// The subscription lives until [ListenerDisposable.dispose] is called.
+  /// It is **not** tied to any Riverpod lifecycle.
+  ///
+  /// ```dart
+  /// final disposable = ref.event(onCounter).listenManuallyAsync((v) async {
+  ///   await someAsyncOp(v);
+  /// });
+  /// disposable.dispose();
+  /// ```
+  ListenerDisposable listenManuallyAsync(
+    Future<void> Function(T value) callback, {
+    void Function(Object, StackTrace)? onError,
+  });
+
   /// Fires the event, delivering [value] to all active listeners.
   ///
   /// ```dart
   /// ref.event(onCounter).emit(42);
   /// ```
   void emit(T value);
+
+  /// Fires the event and awaits all async listeners.
+  ///
+  /// Sync listeners run first, then all async listeners run in parallel.
+  /// The returned future completes when all have finished.
+  ///
+  /// ```dart
+  /// await ref.event(onCounter).emitAsync(42);
+  /// ```
+  Future<void> emitAsync(T value);
 
   /// Returns a [Stream] that emits every time this event fires.
   ///
@@ -82,6 +108,14 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     bus.listen(ref, event.key, callback, onError: onError);
   }
 
+  void listenAsync(
+    Future<void> Function(T value) callback, {
+    void Function(Object, StackTrace)? onError,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    bus.listenAsync(ref, event.key, callback, onError: onError);
+  }
+
   @override
   ListenerDisposable listenManually(
     ListenerCallback<T> callback, {
@@ -89,6 +123,15 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.on(event.key, callback, onError: onError);
+  }
+
+  @override
+  ListenerDisposable listenManuallyAsync(
+    Future<void> Function(T value) callback, {
+    void Function(Object, StackTrace)? onError,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    return bus.onAsync(event.key, callback, onError: onError);
   }
 
   @override
@@ -100,6 +143,11 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   @override
   void emit(T value) {
     ref.read(eventBusProvider).emit(event.key, value);
+  }
+
+  @override
+  Future<void> emitAsync(T value) {
+    return ref.read(eventBusProvider).emitAsync(event.key, value);
   }
 
   @override
@@ -132,6 +180,15 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   }
 
   @override
+  ListenerDisposable listenManuallyAsync(
+    Future<void> Function(T value) callback, {
+    void Function(Object, StackTrace)? onError,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    return bus.onAsync(event.key, callback, onError: onError);
+  }
+
+  @override
   Stream<T> stream() {
     final bus = ref.read(eventBusProvider);
     return bus.stream(event.key);
@@ -140,6 +197,11 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   @override
   void emit(T value) {
     ref.read(eventBusProvider).emit(event.key, value);
+  }
+
+  @override
+  Future<void> emitAsync(T value) {
+    return ref.read(eventBusProvider).emitAsync(event.key, value);
   }
 
   @override

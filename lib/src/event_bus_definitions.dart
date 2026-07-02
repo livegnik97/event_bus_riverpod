@@ -2,6 +2,7 @@ part of './event_bus_provider.dart';
 
 // Definimos el tipo de callback genérico
 typedef ListenerCallback<T> = void Function(T value);
+typedef ListenerCallbackAsync<T> = Future<void> Function(T value);
 
 class _EventBus {
   final Map<int, List<_ListenerEntry>> _listeners = {};
@@ -18,14 +19,30 @@ class _EventBus {
     _listeners.putIfAbsent(key, () => []).add(entry);
 
     if (autoDispose) {
-      // Se limpia automáticamente cuando el provider que se suscribió es destruido
       ref.onDispose(() {
         _removeListener(key, entry);
       });
     }
   }
 
-  // Versión manual que devuelve un disposer
+  void listenAsync<T>(
+    Ref ref,
+    int key,
+    ListenerCallbackAsync<T> callback, {
+    bool autoDispose = true,
+    void Function(Object, StackTrace)? onError,
+  }) {
+    final entry = _ListenerEntry(callback, onError: onError, isAsync: true);
+
+    _listeners.putIfAbsent(key, () => []).add(entry);
+
+    if (autoDispose) {
+      ref.onDispose(() {
+        _removeListener(key, entry);
+      });
+    }
+  }
+
   ListenerDisposable on<T>(
     int key,
     ListenerCallback<T> callback, {
@@ -40,38 +57,80 @@ class _EventBus {
     });
   }
 
-  // Emitir evento
-  void emit<T>(int key, T value) {
-    final listeners = _listeners[key];
+  ListenerDisposable onAsync<T>(
+    int key,
+    ListenerCallbackAsync<T> callback, {
+    void Function(Object, StackTrace)? onError,
+  }) {
+    final entry = _ListenerEntry(callback, onError: onError, isAsync: true);
 
-    if (listeners != null) {
-      // Ejecutamos todos los callbacks
-      for (final entry in List.from(listeners)) {
-        if (!entry.isDisposed) {
-          try {
-            entry.callback(value);
-          } catch (e, st) {
-            try {
-              if (entry.onError != null) {
-                entry.onError!(e, st);
-              } else if (kDebugMode) {
-                log('[event_bus_riverpod] Error in listener: $e\n$st');
-              }
-            } catch (e, st) {
-              if (kDebugMode) {
-                log('[event_bus_riverpod] Error in onError: $e\n$st');
-              }
-            }
-          }
-        }
+    _listeners.putIfAbsent(key, () => []).add(entry);
+
+    return ListenerDisposable(() {
+      _removeListener(key, entry);
+    });
+  }
+
+  void _reportError(_ListenerEntry entry, Object error, StackTrace stack) {
+    try {
+      if (entry.onError != null) {
+        entry.onError!(error, stack);
+      } else if (kDebugMode) {
+        log('[event_bus_riverpod] Error in listener: $error\n$stack');
       }
-
-      // Limpiamos listeners que se marcaron como desechados
-      listeners.removeWhere((entry) => entry.isDisposed);
-      if (listeners.isEmpty) {
-        _listeners.remove(key);
+    } catch (e, st) {
+      if (kDebugMode) {
+        log('[event_bus_riverpod] Error in onError: $e\n$st');
       }
     }
+  }
+
+  void emit<T>(int key, T value) {
+    final listeners = _listeners[key];
+    if (listeners == null) return;
+
+    for (final entry in List.from(listeners)) {
+      if (entry.isDisposed) continue;
+      try {
+        entry.callback(value);
+      } catch (e, st) {
+        _reportError(entry, e, st);
+      }
+    }
+
+    listeners.removeWhere((entry) => entry.isDisposed);
+    if (listeners.isEmpty) _listeners.remove(key);
+  }
+
+  Future<void> emitAsync<T>(int key, T value) async {
+    final listeners = _listeners[key];
+    if (listeners == null) return;
+
+    final futures = <Future<void>>[];
+
+    for (final entry in List.from(listeners)) {
+      if (entry.isDisposed) continue;
+      if (entry.isAsync) {
+        futures.add(() async {
+          try {
+            await entry.callback(value);
+          } catch (e, st) {
+            _reportError(entry, e, st);
+          }
+        }());
+      } else {
+        try {
+          entry.callback(value);
+        } catch (e, st) {
+          _reportError(entry, e, st);
+        }
+      }
+    }
+
+    await Future.wait(futures);
+
+    listeners.removeWhere((entry) => entry.isDisposed);
+    if (listeners.isEmpty) _listeners.remove(key);
   }
 
   Stream<T> stream<T>(int key) {
@@ -114,13 +173,13 @@ class _EventBus {
   void clearAll() => _listeners.clear();
 }
 
-// Clase interna para trackear el estado de los listeners
 class _ListenerEntry {
   final dynamic callback;
   final void Function(Object, StackTrace)? onError;
   bool isDisposed = false;
+  bool isAsync = false;
 
-  _ListenerEntry(this.callback, {this.onError});
+  _ListenerEntry(this.callback, {this.onError, this.isAsync = false});
 
   void markAsDisposed() => isDisposed = true;
 }

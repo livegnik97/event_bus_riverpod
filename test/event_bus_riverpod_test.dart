@@ -479,5 +479,184 @@ void main() {
 
       container.dispose();
     });
+
+    test('listenAsync and emitAsync basic', () async {
+      final captured = <String>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onUserName).listenAsync(
+          (name) async {
+            await Future(() {});
+            captured.add(name);
+          },
+        );
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<String>>(
+          (ref) => ref.event(EventBusConstants.onUserName),
+        ),
+      );
+
+      container.read(listenerProvider);
+
+      await action.emitAsync('Alice');
+      expect(captured, ['Alice']);
+
+      container.dispose();
+    });
+
+    test('emitAsync awaits all async listeners', () async {
+      final log = <int>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenAsync(
+          (v) async {
+            await Future.delayed(const Duration(milliseconds: 10));
+            log.add(v);
+          },
+        );
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+
+      await action.emitAsync(1);
+      expect(log, [1]);
+
+      container.dispose();
+    });
+
+    test('emitAsync also runs sync listeners', () async {
+      final syncLog = <int>[];
+      final asyncLog = <int>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          syncLog.add(v);
+        });
+        ref.event(EventBusConstants.onSecureInt).listenAsync(
+          (v) async {
+            await Future(() {});
+            asyncLog.add(v);
+          },
+        );
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+
+      await action.emitAsync(42);
+      expect(syncLog, [42]);
+      expect(asyncLog, [42]);
+
+      container.dispose();
+    });
+
+    test('listenManuallyAsync with dispose', () async {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final disposable = action.listenManuallyAsync(
+        (v) async {
+          await Future(() {});
+          captured.add(v);
+        },
+      );
+
+      await action.emitAsync(1);
+      expect(captured, [1]);
+
+      disposable.dispose();
+
+      await action.emitAsync(2);
+      expect(captured, [1]);
+
+      container.dispose();
+    });
+
+    test('emitAsync error in async listener is caught by onError', () async {
+      final capturedErrors = <Object>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenAsync(
+          (v) async {
+            await Future(() {});
+            throw Exception('async fail: $v');
+          },
+          onError: (e, st) => capturedErrors.add(e),
+        );
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+
+      await action.emitAsync(42);
+      expect(capturedErrors.length, 1);
+      expect(capturedErrors[0].toString(), contains('async fail: 42'));
+
+      container.dispose();
+    });
+
+    test('emitAsync other listeners still run when one async listener fails', () async {
+      final captured = <int>[];
+      final capturedErrors = <Object>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenAsync(
+          (v) async {
+            await Future(() {});
+            throw Exception('fail');
+          },
+          onError: (e, st) => capturedErrors.add(e),
+        );
+        ref.event(EventBusConstants.onSecureInt).listenAsync(
+          (v) async {
+            await Future(() {});
+            captured.add(v);
+          },
+        );
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+
+      await action.emitAsync(99);
+      expect(capturedErrors.length, 1);
+      expect(captured, [99]);
+
+      container.dispose();
+    });
   });
 }
