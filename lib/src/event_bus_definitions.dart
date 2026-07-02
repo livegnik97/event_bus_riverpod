@@ -117,6 +117,11 @@ class _EventBus {
 
   int _buildKey<T>(String eventName) => Object.hash(eventName, T);
 
+  void clearEvent<T>(String eventName) {
+    final key = _buildKey<T>(eventName);
+    _listeners.remove(key);
+  }
+
   void clearAll() => _listeners.clear();
 }
 

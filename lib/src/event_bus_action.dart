@@ -44,6 +44,9 @@ abstract class EventBusAction<T> {
   /// ```
   Stream<T> stream({void Function(Object, StackTrace)? onError});
 
+  /// Removes all listeners registered for this event.
+  void clearListeners();
+
   /// Whether there is at least one active listener for this event.
   ///
   /// ```dart
@@ -100,6 +103,11 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   }
 
   @override
+  void clearListeners() {
+    ref.read(eventBusProvider).clearEvent<T>(event.eventName);
+  }
+
+  @override
   bool get hasClients {
     return ref.read(eventBusProvider).hasClients<T>(event.eventName);
   }
@@ -132,6 +140,11 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   @override
   void emit(T value) {
     ref.read(eventBusProvider).emit(event.eventName, value);
+  }
+
+  @override
+  void clearListeners() {
+    ref.read(eventBusProvider).clearEvent<T>(event.eventName);
   }
 
   @override

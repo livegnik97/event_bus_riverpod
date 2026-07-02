@@ -344,6 +344,55 @@ void main() {
       container.dispose();
     });
 
+    test('clearListeners removes all listeners for an event', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      globalRef.event(EventBusConstants.onSecureInt).listen((v) {
+        captured.add(v);
+      });
+
+      expect(globalRef.event(EventBusConstants.onSecureInt).hasClients, true);
+
+      globalRef.event(EventBusConstants.onSecureInt).clearListeners();
+
+      expect(globalRef.event(EventBusConstants.onSecureInt).hasClients, false);
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(42);
+      expect(captured, isEmpty);
+
+      container.dispose();
+    });
+
+    test('clearListeners does not affect other events', () {
+      final intCaptured = <int>[];
+      final stringCaptured = <String?>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      globalRef.event(EventBusConstants.onSecureInt).listen((v) {
+        intCaptured.add(v);
+      });
+      globalRef.event(EventBusConstants.onPossibleString).listen((v) {
+        stringCaptured.add(v);
+      });
+
+      globalRef.event(EventBusConstants.onSecureInt).clearListeners();
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(1);
+      globalRef.event(EventBusConstants.onPossibleString).emit('still works');
+
+      expect(intCaptured, isEmpty);
+      expect(stringCaptured, ['still works']);
+
+      container.dispose();
+    });
+
     test('bool event type works correctly', () {
       final captured = <bool>[];
       final container = ProviderContainer();
