@@ -34,6 +34,16 @@ abstract class EventBusAction<T> {
   /// ```
   void emit(T value);
 
+  /// Returns a [Stream] that emits every time this event fires.
+  ///
+  /// The stream is single-subscription. It is automatically cleaned up when
+  /// the stream subscription is cancelled.
+  ///
+  /// ```dart
+  /// ref.event(onCounter).stream().listen(print);
+  /// ```
+  Stream<T> stream({void Function(Object, StackTrace)? onError});
+
   /// Whether there is at least one active listener for this event.
   ///
   /// ```dart
@@ -79,6 +89,12 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   }
 
   @override
+  Stream<T> stream({void Function(Object, StackTrace)? onError}) {
+    final bus = ref.read(eventBusProvider);
+    return bus.stream(event.eventName, onError: onError);
+  }
+
+  @override
   void emit(T value) {
     ref.read(eventBusProvider).emit(event.eventName, value);
   }
@@ -105,6 +121,12 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   }) {
     final bus = ref.read(eventBusProvider);
     return bus.on(event.eventName, callback, onError: onError);
+  }
+
+  @override
+  Stream<T> stream({void Function(Object, StackTrace)? onError}) {
+    final bus = ref.read(eventBusProvider);
+    return bus.stream(event.eventName, onError: onError);
   }
 
   @override

@@ -73,6 +73,26 @@ class _EventBus {
     }
   }
 
+  Stream<T> stream<T>(
+    String eventName, {
+    void Function(Object, StackTrace)? onError,
+  }) {
+    final key = _buildKey<T>(eventName);
+    late final _ListenerEntry entry;
+
+    final controller = StreamController<T>(
+      onCancel: () => _removeListener(key, entry),
+    );
+
+    entry = _ListenerEntry(
+      (T value) => controller.add(value),
+      onError: onError,
+    );
+
+    _listeners.putIfAbsent(key, () => []).add(entry);
+    return controller.stream;
+  }
+
   bool hasClients<T>(String eventName) {
     final key = _buildKey<T>(eventName);
     final listeners = _listeners[key];

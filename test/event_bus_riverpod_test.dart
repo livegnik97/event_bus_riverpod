@@ -271,6 +271,79 @@ void main() {
       container.dispose();
     });
 
+    test('stream receives events from emit', () async {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      final sub = globalRef
+          .event(EventBusConstants.onSecureInt)
+          .stream()
+          .listen((v) => captured.add(v));
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(1);
+      globalRef.event(EventBusConstants.onSecureInt).emit(2);
+      await Future(() {});
+
+      expect(captured, [1, 2]);
+
+      await sub.cancel();
+      container.dispose();
+    });
+
+    test('stream stops receiving after subscription is cancelled', () async {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      final sub = globalRef
+          .event(EventBusConstants.onSecureInt)
+          .stream()
+          .listen((v) => captured.add(v));
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(1);
+      await Future(() {});
+      expect(captured, [1]);
+
+      await sub.cancel();
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(2);
+      await Future(() {});
+      expect(captured, [1]);
+
+      container.dispose();
+    });
+
+    test('stream composition with where and map', () async {
+      final captured = <String>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      final sub = globalRef
+          .event(EventBusConstants.onSecureInt)
+          .stream()
+          .where((n) => n > 10)
+          .map((n) => 'big: $n')
+          .listen((v) => captured.add(v));
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(5);
+      globalRef.event(EventBusConstants.onSecureInt).emit(15);
+      globalRef.event(EventBusConstants.onSecureInt).emit(3);
+      globalRef.event(EventBusConstants.onSecureInt).emit(20);
+      await Future(() {});
+
+      expect(captured, ['big: 15', 'big: 20']);
+
+      await sub.cancel();
+      container.dispose();
+    });
+
     test('bool event type works correctly', () {
       final captured = <bool>[];
       final container = ProviderContainer();
