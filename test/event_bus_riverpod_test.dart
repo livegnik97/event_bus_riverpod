@@ -658,5 +658,167 @@ void main() {
 
       container.dispose();
     });
+
+    test('sticky listen receives last value immediately', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(42);
+
+      final captured = <int>[];
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+
+      expect(captured, [42]);
+
+      container.dispose();
+    });
+
+    test('sticky listenManually receives last value immediately', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(42);
+
+      final captured = <int>[];
+      final disposable = action.listenManually((v) {
+        captured.add(v);
+      }, sticky: true);
+
+      expect(captured, [42]);
+
+      disposable.dispose();
+      container.dispose();
+    });
+
+    test('sticky listenAsync receives last value immediately', () async {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(42);
+
+      final captured = <int>[];
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenAsync((v) async {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+
+      await Future(() {});
+      expect(captured, [42]);
+
+      container.dispose();
+    });
+
+    test('sticky with null value is delivered to nullable event', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<String?>>(
+          (ref) => ref.event(EventBusConstants.onPossibleString),
+        ),
+      );
+
+      action.emit(null);
+
+      final captured = <String?>[];
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onPossibleString).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+
+      expect(captured, [null]);
+
+      container.dispose();
+    });
+
+    test('sticky without emit does not deliver anything', () {
+      final container = ProviderContainer();
+
+      final captured = <int>[];
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+
+      expect(captured, isEmpty);
+
+      container.dispose();
+    });
+
+    test('clearSticky removes cached value', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(42);
+      action.clearSticky();
+
+      final captured = <int>[];
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+
+      expect(captured, isEmpty);
+
+      container.dispose();
+    });
+
+    test('sticky receives latest value after multiple emits', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(1);
+      action.emit(2);
+      action.emit(3);
+
+      final captured = <int>[];
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+
+      expect(captured, [3]);
+
+      container.dispose();
+    });
   });
 }

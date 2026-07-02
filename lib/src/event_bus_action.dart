@@ -25,6 +25,7 @@ abstract class EventBusAction<T> {
   ListenerDisposable listenManually(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   });
 
   /// Subscribes to this event with an async callback and returns a [ListenerDisposable].
@@ -41,6 +42,7 @@ abstract class EventBusAction<T> {
   ListenerDisposable listenManuallyAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   });
 
   /// Fires the event, delivering [value] to all active listeners.
@@ -73,6 +75,21 @@ abstract class EventBusAction<T> {
   /// Removes all listeners registered for this event.
   void clearListeners();
 
+  /// Clears the cached last value so new sticky subscribers won't receive it.
+  ///
+  /// ```dart
+  /// ref.event(onCounter).emit(42);
+  ///
+  /// // This listener receives 42 immediately from the sticky cache
+  /// ref.event(onCounter).listen((v) { }, sticky: true);
+  ///
+  /// ref.event(onCounter).clearSticky();
+  ///
+  /// // This listener receives nothing from cache (no value emitted yet)
+  /// ref.event(onCounter).listen((v) { }, sticky: true);
+  /// ```
+  void clearSticky();
+
   /// Whether there is at least one active listener for this event.
   ///
   /// ```dart
@@ -103,35 +120,39 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   void listen(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
     final bus = ref.read(eventBusProvider);
-    bus.listen(ref, event.key, callback, onError: onError);
+    bus.listen(ref, event.key, callback, onError: onError, sticky: sticky);
   }
 
   void listenAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
     final bus = ref.read(eventBusProvider);
-    bus.listenAsync(ref, event.key, callback, onError: onError);
+    bus.listenAsync(ref, event.key, callback, onError: onError, sticky: sticky);
   }
 
   @override
   ListenerDisposable listenManually(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.on(event.key, callback, onError: onError);
+    return bus.on(event.key, callback, onError: onError, sticky: sticky);
   }
 
   @override
   ListenerDisposable listenManuallyAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.onAsync(event.key, callback, onError: onError);
+    return bus.onAsync(event.key, callback, onError: onError, sticky: sticky);
   }
 
   @override
@@ -153,6 +174,11 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   @override
   void clearListeners() {
     ref.read(eventBusProvider).clearEvent(event.key);
+  }
+
+  @override
+  void clearSticky() {
+    ref.read(eventBusProvider).clearSticky(event.key);
   }
 
   @override
@@ -174,18 +200,20 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   ListenerDisposable listenManually(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.on(event.key, callback, onError: onError);
+    return bus.on(event.key, callback, onError: onError, sticky: sticky);
   }
 
   @override
   ListenerDisposable listenManuallyAsync(
     Future<void> Function(T value) callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.onAsync(event.key, callback, onError: onError);
+    return bus.onAsync(event.key, callback, onError: onError, sticky: sticky);
   }
 
   @override
@@ -207,6 +235,11 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   @override
   void clearListeners() {
     ref.read(eventBusProvider).clearEvent(event.key);
+  }
+
+  @override
+  void clearSticky() {
+    ref.read(eventBusProvider).clearSticky(event.key);
   }
 
   @override

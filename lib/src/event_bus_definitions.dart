@@ -6,6 +6,7 @@ typedef ListenerCallbackAsync<T> = Future<void> Function(T value);
 
 class _EventBus {
   final Map<int, List<_ListenerEntry>> _listeners = {};
+  final Map<int, Object?> _lastValues = {};
 
   void listen<T>(
     Ref ref,
@@ -13,7 +14,11 @@ class _EventBus {
     ListenerCallback<T> callback, {
     bool autoDispose = true,
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
+    if (sticky && _lastValues.containsKey(key)) {
+      callback(_lastValues[key] as T);
+    }
     final entry = _ListenerEntry(callback, onError: onError);
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -31,7 +36,11 @@ class _EventBus {
     ListenerCallbackAsync<T> callback, {
     bool autoDispose = true,
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
+    if (sticky && _lastValues.containsKey(key)) {
+      callback(_lastValues[key] as T);
+    }
     final entry = _ListenerEntry(callback, onError: onError, isAsync: true);
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -47,7 +56,11 @@ class _EventBus {
     int key,
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
+    if (sticky && _lastValues.containsKey(key)) {
+      callback(_lastValues[key] as T);
+    }
     final entry = _ListenerEntry(callback, onError: onError);
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -61,7 +74,11 @@ class _EventBus {
     int key,
     ListenerCallbackAsync<T> callback, {
     void Function(Object, StackTrace)? onError,
+    bool sticky = false,
   }) {
+    if (sticky && _lastValues.containsKey(key)) {
+      callback(_lastValues[key] as T);
+    }
     final entry = _ListenerEntry(callback, onError: onError, isAsync: true);
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -86,6 +103,7 @@ class _EventBus {
   }
 
   void emit<T>(int key, T value) {
+    _lastValues[key] = value;
     final listeners = _listeners[key];
     if (listeners == null) return;
 
@@ -103,6 +121,7 @@ class _EventBus {
   }
 
   Future<void> emitAsync<T>(int key, T value) async {
+    _lastValues[key] = value;
     final listeners = _listeners[key];
     if (listeners == null) return;
 
@@ -170,7 +189,12 @@ class _EventBus {
 
   void clearEvent(int key) => _listeners.remove(key);
 
-  void clearAll() => _listeners.clear();
+  void clearSticky(int key) => _lastValues.remove(key);
+
+  void clearAll() {
+    _listeners.clear();
+    _lastValues.clear();
+  }
 }
 
 class _ListenerEntry {

@@ -30,6 +30,7 @@ Easy, simple, and fast.
 - **Error handling** – catch errors per-listener with `onError` callback (sync and async)
 - **Stream API** – consume events as a `Stream<T>` for composition and `StreamBuilder`
 - **Robust key routing** – events are internally routed with `Type` hashing instead of string interpolation, ensuring platform-independent key generation
+- **Sticky events** – cache the last emitted value and deliver it to new subscribers with `sticky: true`
 
 ## Installing
 
@@ -353,9 +354,76 @@ ref.event(onUserLogin).listenAsync((user) async {
 await ref.event(onUserLogin).emitAsync(user); // awaits only async listeners
 ```
 
+### 11. Sticky events (last value cache)
+
+When you emit an event, the last value is cached. New subscribers using `sticky: true` receive the cached value **immediately** upon subscription, without waiting for the next `emit()`.
+
+This is useful when providers are created **after** the event already fired — for example, a user logs in and later a new screen/feature loads a provider that needs the current user.
+
+**Scenario**: After login, the user object is emitted. A new provider loaded later receives the user immediately.
+
+```dart
+// Login screen — emit user on login
+class LoginScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ElevatedButton(
+      onPressed: () async {
+        final user = await authenticate();
+        ref.event(onUserLogin).emit(user); // cachea el user
+      },
+      child: const Text('Login'),
+    );
+  }
+}
+
+// Profile provider — creado DESPUÉS del login (lazy, nueva ruta, etc.)
+final profileProvider = Provider<Profile>((ref) {
+  User? currentUser;
+
+  // sticky: true → recibe el último usuario inmediatamente si ya existe
+  ref.event(onUserLogin).listen((user) {
+    currentUser = user;
+    // ...
+  }, sticky: true);
+
+  // ...
+});
+```
+
+**Available on all listen methods:**
+
+| Method | `sticky` param |
+|--------|---------------|
+| `listen(cb, sticky: true)` | ✅ |
+| `listenAsync(cb, sticky: true)` | ✅ |
+| `listenManually(cb, sticky: true)` | ✅ |
+| `listenManuallyAsync(cb, sticky: true)` | ✅ |
+
+**Nullable values**: Null is cached if the event type allows it (`EventBusIdentifier<String?>`).
+
+```dart
+final onNullable = EventBusIdentifier<String?>('onNullable');
+
+ref.event(onNullable).emit(null);
+
+ref.event(onNullable).listen((v) {
+  print(v); // null — received immediately from sticky cache
+}, sticky: true);
+```
+
+**Clear the sticky cache**:
+
+```dart
+ref.event(onUserLogin).clearSticky(); // next sticky subscriber won't receive anything
+
+// Or clear everything (listeners + sticky values)
+ref.event(onUserLogin).clearListeners();
+```
+
 ## Reference
 
-| Extension | Available on | Sync | Async | Auto-dispose |
-|-----------|-------------|------|-------|-------------|
-| `EventBusForRef` | `Ref` | `listen()` · `listenManually()` | `listenAsync()` · `listenManuallyAsync()` | ✅ (via `ref.onDispose`) |
-| `EventBusForWidgetRef` | `WidgetRef` | `listenManually()` | `listenManuallyAsync()` | Manual |
+| Extension | Available on | Sync | Async | Sticky | Auto-dispose |
+|-----------|-------------|------|-------|--------|-------------|
+| `EventBusForRef` | `Ref` | `listen()` · `listenManually()` | `listenAsync()` · `listenManuallyAsync()` | `clearSticky()` | ✅ (via `ref.onDispose`) |
+| `EventBusForWidgetRef` | `WidgetRef` | `listenManually()` | `listenManuallyAsync()` | `clearSticky()` | Manual |
