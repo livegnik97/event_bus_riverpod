@@ -60,7 +60,11 @@ class _EventBus {
               } else if (kDebugMode) {
                 log('[event_bus_riverpod] Error in listener: $e\n$st');
               }
-            } catch (_) {}
+            } catch (e, st) {
+              if (kDebugMode) {
+                log('[event_bus_riverpod] Error in onError: $e\n$st');
+              }
+            }
           }
         }
       }
