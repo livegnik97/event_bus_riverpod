@@ -231,21 +231,6 @@ final ageStreamProvider = Provider<Stream<int>>((ref) {
 ```
 
 ```dart
-// Manual lifecycle with error handling
-final subscription = ref.event(EventBusConstants.onUserAgeChanged).stream().listen(
-  (age) {
-    print('Age: $age');
-  },
-  onError: (error, stackTrace) {
-    log('Stream error: $error', stackTrace: stackTrace);
-  },
-);
-
-// Clean up when done
-subscription.cancel();
-```
-
-```dart
 // Catch errors from the bus with onError parameter
 ref.event(EventBusConstants.onUserAgeChanged).stream(
   onError: (error, stackTrace) {
