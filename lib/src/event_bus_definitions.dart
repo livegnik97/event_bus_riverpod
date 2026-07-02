@@ -82,18 +82,26 @@ class _EventBus {
     void Function(Object, StackTrace)? onError,
   }) {
     final key = _buildKey<T>(eventName);
-    late final _ListenerEntry entry;
+    _ListenerEntry? entry;
 
-    final controller = StreamController<T>(
-      onCancel: () => _removeListener(key, entry),
+    late final StreamController<T> controller;
+
+    controller = StreamController<T>(
+      onListen: () {
+        entry = _ListenerEntry(
+          (T value) => controller.add(value),
+          onError: onError,
+        );
+        _listeners.putIfAbsent(key, () => []).add(entry!);
+      },
+      onCancel: () {
+        if (entry != null) {
+          _removeListener(key, entry!);
+          entry = null;
+        }
+      },
     );
 
-    entry = _ListenerEntry(
-      (T value) => controller.add(value),
-      onError: onError,
-    );
-
-    _listeners.putIfAbsent(key, () => []).add(entry);
     return controller.stream;
   }
 

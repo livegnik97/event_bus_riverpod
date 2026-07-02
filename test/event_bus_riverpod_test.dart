@@ -393,6 +393,67 @@ void main() {
       container.dispose();
     });
 
+    test('stream does not register listener if never subscribed', () async {
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      final hasClientsBefore = globalRef
+          .event(EventBusConstants.onSecureInt)
+          .hasClients;
+      expect(hasClientsBefore, false);
+
+      // Llamamos a stream() pero nunca a .listen()
+      globalRef.event(EventBusConstants.onSecureInt).stream();
+
+      // No debería haber listeners registrados
+      final hasClientsAfter = globalRef
+          .event(EventBusConstants.onSecureInt)
+          .hasClients;
+      expect(hasClientsAfter, false);
+
+      // Emitir no debería causar errores ni entregar nada
+      globalRef.event(EventBusConstants.onSecureInt).emit(42);
+
+      container.dispose();
+    });
+
+    test('stream registers listener only on listen, not on stream creation', () async {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      // Crear stream sin escuchar
+      final stream = globalRef
+          .event(EventBusConstants.onSecureInt)
+          .stream();
+
+      // No debería haber listeners
+      expect(
+        globalRef.event(EventBusConstants.onSecureInt).hasClients,
+        false,
+      );
+
+      // Ahora suscribirse
+      final sub = stream.listen((v) => captured.add(v));
+
+      // Ahora sí debería haber listener
+      expect(
+        globalRef.event(EventBusConstants.onSecureInt).hasClients,
+        true,
+      );
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(1);
+      await Future(() {});
+      expect(captured, [1]);
+
+      await sub.cancel();
+      container.dispose();
+    });
+
     test('bool event type works correctly', () {
       final captured = <bool>[];
       final container = ProviderContainer();
