@@ -1,7 +1,5 @@
-import 'dart:ui';
-
 class ListenerDisposable {
-  final VoidCallback _dispose;
+  final void Function() _dispose;
 
   ListenerDisposable(this._dispose);
 
