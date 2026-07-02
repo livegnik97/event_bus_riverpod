@@ -23,10 +23,11 @@ Easy, simple, and fast.
 - **Type-safe events** – each event carries a generic type `T`, preventing type mismatches
 - **Auto-dispose** – listeners tied to a `Ref` are automatically cleaned up when the provider is destroyed
 - **Manual lifecycle** – subscribe/unsubscribe manually with `ListenerDisposable`
+- **Async support** – `listenAsync()` / `emitAsync()` for listeners that need to await async work (API calls, DB operations)
 - **Dual context** – extensions on both `Ref` and `WidgetRef`
 - **Multiple listeners** – many listeners can subscribe to the same event
 - **Error isolation** – a failing callback never breaks other listeners
-- **Error handling** – catch errors per-listener with `onError` callback
+- **Error handling** – catch errors per-listener with `onError` callback (sync and async)
 - **Stream API** – consume events as a `Stream<T>` for composition and `StreamBuilder`
 - **Robust key routing** – events are internally routed with `Type` hashing instead of string interpolation, ensuring platform-independent key generation
 
