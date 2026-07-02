@@ -85,9 +85,7 @@ class _EventBus {
 
     controller = StreamController<T>(
       onListen: () {
-        entry = _ListenerEntry(
-          (T value) => controller.add(value),
-        );
+        entry = _ListenerEntry((T value) => controller.add(value));
         _listeners.putIfAbsent(key, () => []).add(entry!);
       },
       onCancel: () {
@@ -104,15 +102,8 @@ class _EventBus {
   bool hasClients<T>(String eventName) {
     final key = _buildKey<T>(eventName);
     final listeners = _listeners[key];
-    if (listeners != null && listeners.isNotEmpty) {
-      // Limpiamos listeners que se marcaron como desechados
-      listeners.removeWhere((entry) => entry.isDisposed);
-      if (listeners.isEmpty) {
-        _listeners.remove(key);
-      }
-      return listeners.isNotEmpty;
-    }
-    return false;
+    return listeners != null &&
+        List.from(listeners).any((entry) => !entry.isDisposed);
   }
 
   void _removeListener(int key, _ListenerEntry entry) {
