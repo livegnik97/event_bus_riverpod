@@ -8,12 +8,11 @@ class _EventBus {
 
   void listen<T>(
     Ref ref,
-    String eventName,
+    int key,
     ListenerCallback<T> callback, {
     bool autoDispose = true,
     void Function(Object, StackTrace)? onError,
   }) {
-    final key = _buildKey<T>(eventName);
     final entry = _ListenerEntry(callback, onError: onError);
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -28,11 +27,10 @@ class _EventBus {
 
   // Versión manual que devuelve un disposer
   ListenerDisposable on<T>(
-    String eventName,
+    int key,
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
   }) {
-    final key = _buildKey<T>(eventName);
     final entry = _ListenerEntry(callback, onError: onError);
 
     _listeners.putIfAbsent(key, () => []).add(entry);
@@ -43,8 +41,7 @@ class _EventBus {
   }
 
   // Emitir evento
-  void emit<T>(String eventName, T value) {
-    final key = _buildKey<T>(eventName);
+  void emit<T>(int key, T value) {
     final listeners = _listeners[key];
 
     if (listeners != null) {
@@ -77,8 +74,7 @@ class _EventBus {
     }
   }
 
-  Stream<T> stream<T>(String eventName) {
-    final key = _buildKey<T>(eventName);
+  Stream<T> stream<T>(int key) {
     _ListenerEntry? entry;
 
     late final StreamController<T> controller;
@@ -99,8 +95,7 @@ class _EventBus {
     return controller.stream;
   }
 
-  bool hasClients<T>(String eventName) {
-    final key = _buildKey<T>(eventName);
+  bool hasClients(int key) {
     final listeners = _listeners[key];
     return listeners != null &&
         List.from(listeners).any((entry) => !entry.isDisposed);
@@ -114,12 +109,7 @@ class _EventBus {
     }
   }
 
-  int _buildKey<T>(String eventName) => Object.hash(eventName, T);
-
-  void clearEvent<T>(String eventName) {
-    final key = _buildKey<T>(eventName);
-    _listeners.remove(key);
-  }
+  void clearEvent(int key) => _listeners.remove(key);
 
   void clearAll() => _listeners.clear();
 }

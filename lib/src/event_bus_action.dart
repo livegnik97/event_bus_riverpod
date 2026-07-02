@@ -79,7 +79,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
   }) {
     final bus = ref.read(eventBusProvider);
-    bus.listen(ref, event.eventName, callback, onError: onError);
+    bus.listen(ref, event.key, callback, onError: onError);
   }
 
   @override
@@ -88,28 +88,28 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.on(event.eventName, callback, onError: onError);
+    return bus.on(event.key, callback, onError: onError);
   }
 
   @override
   Stream<T> stream() {
     final bus = ref.read(eventBusProvider);
-    return bus.stream(event.eventName);
+    return bus.stream(event.key);
   }
 
   @override
   void emit(T value) {
-    ref.read(eventBusProvider).emit(event.eventName, value);
+    ref.read(eventBusProvider).emit(event.key, value);
   }
 
   @override
   void clearListeners() {
-    ref.read(eventBusProvider).clearEvent<T>(event.eventName);
+    ref.read(eventBusProvider).clearEvent(event.key);
   }
 
   @override
   bool get hasClients {
-    return ref.read(eventBusProvider).hasClients<T>(event.eventName);
+    return ref.read(eventBusProvider).hasClients(event.key);
   }
 }
 
@@ -128,27 +128,27 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     void Function(Object, StackTrace)? onError,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.on(event.eventName, callback, onError: onError);
+    return bus.on(event.key, callback, onError: onError);
   }
 
   @override
   Stream<T> stream() {
     final bus = ref.read(eventBusProvider);
-    return bus.stream(event.eventName);
+    return bus.stream(event.key);
   }
 
   @override
   void emit(T value) {
-    ref.read(eventBusProvider).emit(event.eventName, value);
+    ref.read(eventBusProvider).emit(event.key, value);
   }
 
   @override
   void clearListeners() {
-    ref.read(eventBusProvider).clearEvent<T>(event.eventName);
+    ref.read(eventBusProvider).clearEvent(event.key);
   }
 
   @override
   bool get hasClients {
-    return ref.read(eventBusProvider).hasClients<T>(event.eventName);
+    return ref.read(eventBusProvider).hasClients(event.key);
   }
 }
