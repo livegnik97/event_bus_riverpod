@@ -77,10 +77,7 @@ class _EventBus {
     }
   }
 
-  Stream<T> stream<T>(
-    String eventName, {
-    void Function(Object, StackTrace)? onError,
-  }) {
+  Stream<T> stream<T>(String eventName) {
     final key = _buildKey<T>(eventName);
     _ListenerEntry? entry;
 
@@ -90,7 +87,6 @@ class _EventBus {
       onListen: () {
         entry = _ListenerEntry(
           (T value) => controller.add(value),
-          onError: onError,
         );
         _listeners.putIfAbsent(key, () => []).add(entry!);
       },

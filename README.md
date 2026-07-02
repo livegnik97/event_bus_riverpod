@@ -231,12 +231,19 @@ final ageStreamProvider = Provider<Stream<int>>((ref) {
 ```
 
 ```dart
-// Catch errors from the bus with onError parameter
-ref.event(EventBusConstants.onUserAgeChanged).stream(
-  onError: (error, stackTrace) {
-    log('Bus error: $error', stackTrace: stackTrace);
-  },
-).listen((age) => print('Age: $age'));
+// Catch errors using standard stream error handling
+ref.event(EventBusConstants.onUserAgeChanged).stream()
+  .listen(
+    (age) => print('Age: $age'),
+    onError: (error, stackTrace) {
+      log('Stream error: $error', stackTrace: stackTrace);
+    },
+  );
+
+// Or use handleError for composition
+ref.event(EventBusConstants.onUserAgeChanged).stream()
+  .handleError((error) => log('Error: $error'))
+  .listen((age) => print('Age: $age'));
 ```
 
 ### 9. Clear all listeners of an event

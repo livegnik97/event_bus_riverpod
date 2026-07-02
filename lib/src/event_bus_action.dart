@@ -42,7 +42,7 @@ abstract class EventBusAction<T> {
   /// ```dart
   /// ref.event(onCounter).stream().listen(print);
   /// ```
-  Stream<T> stream({void Function(Object, StackTrace)? onError});
+  Stream<T> stream();
 
   /// Removes all listeners registered for this event.
   void clearListeners();
@@ -92,9 +92,9 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   }
 
   @override
-  Stream<T> stream({void Function(Object, StackTrace)? onError}) {
+  Stream<T> stream() {
     final bus = ref.read(eventBusProvider);
-    return bus.stream(event.eventName, onError: onError);
+    return bus.stream(event.eventName);
   }
 
   @override
@@ -132,9 +132,9 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   }
 
   @override
-  Stream<T> stream({void Function(Object, StackTrace)? onError}) {
+  Stream<T> stream() {
     final bus = ref.read(eventBusProvider);
-    return bus.stream(event.eventName, onError: onError);
+    return bus.stream(event.eventName);
   }
 
   @override
