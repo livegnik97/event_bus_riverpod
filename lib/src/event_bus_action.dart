@@ -163,11 +163,11 @@ abstract class EventBusAction<T> {
   /// ref.event(onCounter).emit(42);
   /// ```
   ///
-  /// Optionally attach [metadata] to this emission:
+  /// Optionally attach [source] and [extraData] to this emission:
   /// ```dart
-  /// ref.event(onCounter).emit(42, metadata: BusMetadataForEmit(source: 'dashboard'));
+  /// ref.event(onCounter).emit(42, source: 'dashboard');
   /// ```
-  void emit(T value, {BusMetadataForEmit? metadata});
+  void emit(T value, {String? source, dynamic extraData});
 
   /// Fires the event and awaits all async listeners.
   ///
@@ -178,11 +178,11 @@ abstract class EventBusAction<T> {
   /// await ref.event(onCounter).emitAsync(42);
   /// ```
   ///
-  /// Optionally attach [metadata] to this emission:
+  /// Optionally attach [source] and [extraData] to this emission:
   /// ```dart
-  /// await ref.event(onCounter).emitAsync(42, metadata: BusMetadataForEmit(source: 'dashboard'));
+  /// await ref.event(onCounter).emitAsync(42, source: 'dashboard');
   /// ```
-  Future<void> emitAsync(T value, {BusMetadataForEmit? metadata});
+  Future<void> emitAsync(T value, {String? source, dynamic extraData});
 
   /// Returns a [Stream] that emits every time this event fires.
   ///
@@ -229,7 +229,7 @@ abstract class EventBusAction<T> {
   ///
   /// Use [sticky] to receive the last emitted value immediately:
   /// ```dart
-  /// ref.event(onCounter).emit(42, metadata: BusMetadataForEmit(source: 'test'));
+  /// ref.event(onCounter).emit(42, source: 'test');
   /// ref.event(onCounter).streamWithMeta(sticky: true).listen((v, meta) {
   ///   print(v);      // 42
   ///   print(meta.source); // 'test'
@@ -590,8 +590,12 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.stream(event.key,
-        sticky: sticky, priority: priority, where: where);
+    return bus.stream(
+      event.key,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
   }
 
   @override
@@ -601,20 +605,26 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.streamWithMeta(event.key,
-        sticky: sticky, priority: priority, where: where);
+    return bus.streamWithMeta(
+      event.key,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
   }
 
   @override
-  void emit(T value, {BusMetadataForEmit? metadata}) {
-    ref.read(eventBusProvider).emit(event.key, value, metadata: metadata);
+  void emit(T value, {String? source, dynamic extraData}) {
+    ref
+        .read(eventBusProvider)
+        .emit(event.key, value, source: source, extraData: extraData);
   }
 
   @override
-  Future<void> emitAsync(T value, {BusMetadataForEmit? metadata}) {
+  Future<void> emitAsync(T value, {String? source, dynamic extraData}) {
     return ref
         .read(eventBusProvider)
-        .emitAsync(event.key, value, metadata: metadata);
+        .emitAsync(event.key, value, source: source, extraData: extraData);
   }
 
   @override
@@ -735,8 +745,12 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.stream(event.key,
-        sticky: sticky, priority: priority, where: where);
+    return bus.stream(
+      event.key,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
   }
 
   @override
@@ -746,20 +760,26 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
     ListenerWhere<T>? where,
   }) {
     final bus = ref.read(eventBusProvider);
-    return bus.streamWithMeta(event.key,
-        sticky: sticky, priority: priority, where: where);
+    return bus.streamWithMeta(
+      event.key,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
   }
 
   @override
-  void emit(T value, {BusMetadataForEmit? metadata}) {
-    ref.read(eventBusProvider).emit(event.key, value, metadata: metadata);
+  void emit(T value, {String? source, dynamic extraData}) {
+    ref
+        .read(eventBusProvider)
+        .emit(event.key, value, source: source, extraData: extraData);
   }
 
   @override
-  Future<void> emitAsync(T value, {BusMetadataForEmit? metadata}) {
+  Future<void> emitAsync(T value, {String? source, dynamic extraData}) {
     return ref
         .read(eventBusProvider)
-        .emitAsync(event.key, value, metadata: metadata);
+        .emitAsync(event.key, value, source: source, extraData: extraData);
   }
 
   @override

@@ -1,3 +1,7 @@
+## 2.5.2
+
+* **Removed `BusMetadataForEmit` class** — `emit()` and `emitAsync()` now accept `source` and `extraData` as direct optional parameters instead of requiring a `BusMetadataForEmit` wrapper.
+
 ## 2.5.1
 
 * All features from README sections 10 through 15:

@@ -18,11 +18,11 @@ class _EventBus {
   final Map<int, _EventCacheEntry> _lastValues = {};
   final Map<int, List<_MiddlewareEntry>> _middlewares = {};
 
-  BusMetadata _buildMetadata(BusMetadataForEmit? emitMetadata) {
+  BusMetadata _buildMetadata(String? source, dynamic extraData) {
     return BusMetadata(
       timestamp: DateTime.now(),
-      source: emitMetadata?.source,
-      extraData: emitMetadata?.extraData,
+      source: source,
+      extraData: extraData,
     );
   }
 
@@ -418,8 +418,8 @@ class _EventBus {
     next(value);
   }
 
-  void emit<T>(int key, T value, {BusMetadataForEmit? metadata}) {
-    final meta = _buildMetadata(metadata);
+  void emit<T>(int key, T value, {String? source, dynamic extraData}) {
+    final meta = _buildMetadata(source, extraData);
     _emitThroughMiddleware(key, value, meta, (finalValue, m) {
       _notifySync(key, finalValue, m);
     });
@@ -428,9 +428,10 @@ class _EventBus {
   Future<void> emitAsync<T>(
     int key,
     T value, {
-    BusMetadataForEmit? metadata,
+    String? source,
+    dynamic extraData,
   }) async {
-    final meta = _buildMetadata(metadata);
+    final meta = _buildMetadata(source, extraData);
     await _emitThroughMiddlewareAsync(key, value, meta);
   }
 
@@ -526,8 +527,7 @@ class _EventBus {
           );
         }
         entry = _ListenerEntry(
-          (T value, BusMetadata metadata) =>
-              controller.add((value, metadata)),
+          (T value, BusMetadata metadata) => controller.add((value, metadata)),
           priority: priority,
           where: where,
           hasMetadata: true,

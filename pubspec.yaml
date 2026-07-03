@@ -1,6 +1,6 @@
 name: event_bus_riverpod
 description: "A type-safe, Riverpod-integrated event bus for Flutter. It allows you to emit and listen to events anywhere in your app using Riverpod's dependency injection and lifecycle management."
-version: 2.5.1
+version: 2.5.2
 repository: https://github.com/livegnik97/event_bus_riverpod.git
 homepage: https://github.com/livegnik97/event_bus_riverpod
 

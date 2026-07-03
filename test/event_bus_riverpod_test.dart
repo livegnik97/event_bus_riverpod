@@ -1159,10 +1159,8 @@ void main() {
         });
         action.emit(
           42,
-          metadata: BusMetadataForEmit(
-            source: 'test-screen',
+          source: 'test-screen',
             extraData: {'key': 123},
-          ),
         );
 
         expect(capturedMeta!.source, 'test-screen');
@@ -1202,7 +1200,7 @@ void main() {
         final disposable = action.listenManuallyWithMeta((v, meta) {
           capturedMeta = meta;
         });
-        action.emit(42, metadata: BusMetadataForEmit(source: 'manual'));
+        action.emit(42, source: 'manual');
 
         expect(capturedMeta!.source, 'manual');
         disposable.dispose();
@@ -1223,7 +1221,7 @@ void main() {
         });
         await action.emitAsync(
           42,
-          metadata: BusMetadataForEmit(source: 'async'),
+          source: 'async',
         );
 
         expect(capturedMeta!.source, 'async');
@@ -1244,7 +1242,7 @@ void main() {
         });
         await action.emitAsync(
           42,
-          metadata: BusMetadataForEmit(source: 'manual-async'),
+          source: 'manual-async',
         );
 
         expect(capturedMeta!.source, 'manual-async');
@@ -1261,7 +1259,7 @@ void main() {
         );
 
         // Emit with metadata, then subscribe sticky
-        action.emit(42, metadata: BusMetadataForEmit(source: 'sticky-source'));
+        action.emit(42, source: 'sticky-source');
 
         BusMetadata? capturedMeta;
         action.listenWithMeta((v, meta) {
@@ -1291,7 +1289,7 @@ void main() {
         });
         action.emit(
           42,
-          metadata: BusMetadataForEmit(source: 'middleware-test'),
+          source: 'middleware-test',
         );
 
         expect(capturedMeta!.source, 'middleware-test');
@@ -1474,9 +1472,9 @@ void main() {
           captured.add(v);
         }, where: (v, meta) => meta.source == 'trusted');
 
-        action.emit(1, metadata: BusMetadataForEmit(source: 'trusted'));
-        action.emit(2, metadata: BusMetadataForEmit(source: 'untrusted'));
-        action.emit(3, metadata: BusMetadataForEmit(source: 'trusted'));
+        action.emit(1, source: 'trusted');
+        action.emit(2, source: 'untrusted');
+        action.emit(3, source: 'trusted');
 
         expect(captured, [1, 3]);
 
