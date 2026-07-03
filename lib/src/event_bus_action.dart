@@ -147,9 +147,9 @@ abstract class EventBusAction<T> {
   ///     log('Emitted at ${meta.timestamp} from ${meta.source}');
   ///   },
   /// );
-/// disposable.dispose();
-/// ```
-ListenerDisposable listenManuallyAsyncWithMeta(
+  /// disposable.dispose();
+  /// ```
+  ListenerDisposable listenManuallyAsyncWithMeta(
     ListenerWithMetaCallbackAsync<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
@@ -192,7 +192,64 @@ ListenerDisposable listenManuallyAsyncWithMeta(
   /// ```dart
   /// ref.event(onCounter).stream().listen(print);
   /// ```
-  Stream<T> stream();
+  ///
+  /// Use [sticky] to receive the last emitted value immediately:
+  /// ```dart
+  /// ref.event(onCounter).emit(42);
+  /// ref.event(onCounter).stream(sticky: true).listen(print); // 42
+  /// ```
+  ///
+  /// Use [priority] to control execution order (higher runs first):
+  /// ```dart
+  /// ref.event(onCounter).stream(priority: 10).listen(print);
+  /// ```
+  ///
+  /// Use [where] to filter which emissions reach the stream:
+  /// ```dart
+  /// ref.event(onCounter).stream(where: (v, _) => v > 0).listen(print);
+  /// ```
+  Stream<T> stream({
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  });
+
+  /// Returns a [Stream] that emits a record `(T, BusMetadata)` every time this
+  /// event fires, providing access to metadata alongside the value.
+  ///
+  /// The stream is single-subscription. It is automatically cleaned up when
+  /// the stream subscription is cancelled.
+  ///
+  /// ```dart
+  /// ref.event(onCounter).streamWithMeta().listen((v, meta) {
+  ///   print(v);                       // 42
+  ///   print(meta.timestamp);          // 2026-07-02 15:30:00.123
+  /// });
+  /// ```
+  ///
+  /// Use [sticky] to receive the last emitted value immediately:
+  /// ```dart
+  /// ref.event(onCounter).emit(42, metadata: BusMetadataForEmit(source: 'test'));
+  /// ref.event(onCounter).streamWithMeta(sticky: true).listen((v, meta) {
+  ///   print(v);      // 42
+  ///   print(meta.source); // 'test'
+  /// });
+  /// ```
+  ///
+  /// Use [priority] to control execution order (higher runs first):
+  /// ```dart
+  /// ref.event(onCounter).streamWithMeta(priority: 10).listen(print);
+  /// ```
+  ///
+  /// Use [where] to filter which emissions reach the stream:
+  /// ```dart
+  /// ref.event(onCounter).streamWithMeta(where: (v, _) => v > 0).listen(print);
+  /// ```
+  Stream<(T, BusMetadata)> streamWithMeta({
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  });
 
   /// Removes all listeners registered for this event.
   void clearListeners();
@@ -277,7 +334,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   ///   }, priority: 10);
   ///   ref.event(onGreeting).listen((msg) {
   ///     // runs after priority 10
-  /// }, priority: 0);
+  ///   }, priority: 0);
   /// });
   /// ```
   ///
@@ -326,10 +383,10 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   /// final provider = Provider<void>((ref) {
   ///   ref.event(onGreeting).listenWithMeta((msg, meta) {
   ///     log('$msg at ${meta.timestamp}');
-/// });
-/// });
-/// ```
-void listenWithMeta(
+  ///   });
+  /// });
+  /// ```
+  void listenWithMeta(
     ListenerWithMetaCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
@@ -379,7 +436,7 @@ void listenWithMeta(
   ///   }, priority: 10);
   ///   ref.event(onGreeting).listenAsync((msg) async {
   ///     // runs after priority 10
-  /// }, priority: 0);
+  ///   }, priority: 0);
   /// });
   /// ```
   ///
@@ -429,10 +486,10 @@ void listenWithMeta(
   ///   ref.event(onGreeting).listenAsyncWithMeta((msg, meta) async {
   ///     await save(msg);
   ///     log('Received at ${meta.timestamp}');
-/// });
-/// });
-/// ```
-void listenAsyncWithMeta(
+  ///   });
+  /// });
+  /// ```
+  void listenAsyncWithMeta(
     ListenerWithMetaCallbackAsync<T> callback, {
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
@@ -527,9 +584,25 @@ void listenAsyncWithMeta(
   }
 
   @override
-  Stream<T> stream() {
+  Stream<T> stream({
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
     final bus = ref.read(eventBusProvider);
-    return bus.stream(event.key);
+    return bus.stream(event.key,
+        sticky: sticky, priority: priority, where: where);
+  }
+
+  @override
+  Stream<(T, BusMetadata)> streamWithMeta({
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    return bus.streamWithMeta(event.key,
+        sticky: sticky, priority: priority, where: where);
   }
 
   @override
@@ -656,9 +729,25 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   }
 
   @override
-  Stream<T> stream() {
+  Stream<T> stream({
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
     final bus = ref.read(eventBusProvider);
-    return bus.stream(event.key);
+    return bus.stream(event.key,
+        sticky: sticky, priority: priority, where: where);
+  }
+
+  @override
+  Stream<(T, BusMetadata)> streamWithMeta({
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    final bus = ref.read(eventBusProvider);
+    return bus.streamWithMeta(event.key,
+        sticky: sticky, priority: priority, where: where);
   }
 
   @override

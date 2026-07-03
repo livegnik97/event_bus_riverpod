@@ -473,14 +473,65 @@ class _EventBus {
     });
   }
 
-  Stream<T> stream<T>(int key) {
+  Stream<T> stream<T>(
+    int key, {
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
     _ListenerEntry? entry;
 
     late final StreamController<T> controller;
 
     controller = StreamController<T>(
       onListen: () {
-        entry = _ListenerEntry((T value) => controller.add(value));
+        if (sticky) {
+          _tryDeliverSticky<T>(key, where, (v) => controller.add(v));
+        }
+        entry = _ListenerEntry(
+          (T value) => controller.add(value),
+          priority: priority,
+          where: where,
+        );
+        _listeners.putIfAbsent(key, () => []).add(entry!);
+      },
+      onCancel: () {
+        if (entry != null) {
+          _removeListener(key, entry!);
+          entry = null;
+        }
+      },
+    );
+
+    return controller.stream;
+  }
+
+  Stream<(T, BusMetadata)> streamWithMeta<T>(
+    int key, {
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ListenerEntry? entry;
+
+    late final StreamController<(T, BusMetadata)> controller;
+
+    controller = StreamController<(T, BusMetadata)>(
+      onListen: () {
+        if (sticky) {
+          _tryDeliverStickyWithMeta<T>(
+            key,
+            where,
+            (v, m) => controller.add((v, m)),
+          );
+        }
+        entry = _ListenerEntry(
+          (T value, BusMetadata metadata) =>
+              controller.add((value, metadata)),
+          priority: priority,
+          where: where,
+          hasMetadata: true,
+        );
         _listeners.putIfAbsent(key, () => []).add(entry!);
       },
       onCancel: () {

@@ -28,7 +28,7 @@ Easy, simple, and fast.
 - **Multiple listeners** – many listeners can subscribe to the same event
 - **Error isolation** – a failing callback never breaks other listeners
 - **Error handling** – catch errors per-listener with `onError` callback (sync and async)
-- **Stream API** – consume events as a `Stream<T>` for composition and `StreamBuilder`
+- **Stream API** – consume events as a `Stream<T>` (or `Stream<(T, BusMetadata)>` with `streamWithMeta()`) for composition and `StreamBuilder`
 - **Robust key routing** – events are internally routed with `Type` hashing instead of string interpolation, ensuring platform-independent key generation
 - **Sticky events** – cache the last emitted value and deliver it to new subscribers with `sticky: true`
 - **Middleware pipeline** – intercept, transform, or cancel events before they reach listeners with `applyMiddleware()`
@@ -395,7 +395,7 @@ final profileProvider = Provider<Profile>((ref) {
 });
 ```
 
-**Available on all listen methods:**
+**Available on all listen and stream methods:**
 
 | Method | `sticky` param |
 |--------|---------------|
@@ -403,6 +403,8 @@ final profileProvider = Provider<Profile>((ref) {
 | `listenAsync(cb, sticky: true)` | ✅ |
 | `listenManually(cb, sticky: true)` | ✅ |
 | `listenManuallyAsync(cb, sticky: true)` | ✅ |
+| `stream(sticky: true)` | ✅ |
+| `streamWithMeta(sticky: true)` | ✅ |
 
 **Nullable values**: Null is cached if the event type allows it (`EventBusIdentifier<String?>`).
 
@@ -510,7 +512,7 @@ ref.event(onCounter).listen((v) {
 }, priority: -5);
 ```
 
-**Available on all listen methods:**
+**Available on all listen and stream methods:**
 
 | Method | `priority` param |
 |--------|-----------------|
@@ -518,6 +520,8 @@ ref.event(onCounter).listen((v) {
 | `listenAsync(cb, priority: n)` | ✅ |
 | `listenManually(cb, priority: n)` | ✅ |
 | `listenManuallyAsync(cb, priority: n)` | ✅ |
+| `stream(priority: n)` | ✅ |
+| `streamWithMeta(priority: n)` | ✅ |
 
 Listeners with the same priority execute in FIFO order:
 
@@ -647,7 +651,7 @@ ref.event(onUserLogin).listenWithMeta((user, meta) {
 | `emit(value)` | ✅ optional `metadata:` |
 | `emitAsync(value)` | ✅ optional `metadata:` |
 
-| Listen method | Receives `BusMetadata` |
+| Method | Receives `BusMetadata` |
 |--------------|----------------------|
 | `listen(cb)` | ❌ |
 | `listenWithMeta(cb)` | ✅ |
@@ -657,6 +661,8 @@ ref.event(onUserLogin).listenWithMeta((user, meta) {
 | `listenManuallyWithMeta(cb)` | ✅ |
 | `listenManuallyAsync(cb)` | ❌ |
 | `listenManuallyAsyncWithMeta(cb)` | ✅ |
+| `stream()` | ❌ |
+| `streamWithMeta()` | ✅ (via `(T, BusMetadata)` record) |
 
 ### 15. Listener filter with `where`
 
@@ -711,7 +717,7 @@ action.listen((v) {
 }, sticky: true, where: (v, _) => v > 0);
 ```
 
-**Available on all listen methods:**
+**Available on all listen and stream methods:**
 
 | Method | `where` param |
 |--------|--------------|
@@ -723,6 +729,8 @@ action.listen((v) {
 | `listenAsyncWithMeta(cb, where: ...)` | ✅ |
 | `listenManuallyWithMeta(cb, where: ...)` | ✅ |
 | `listenManuallyAsyncWithMeta(cb, where: ...)` | ✅ |
+| `stream(where: ...)` | ✅ |
+| `streamWithMeta(where: ...)` | ✅ |
 
 ## Reference
 
