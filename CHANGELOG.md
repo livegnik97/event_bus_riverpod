@@ -1,3 +1,7 @@
+## 2.6.0
+
+* **16 — SubEvents**: filtered views of events with their own listener list, sticky cache, and a mandatory `where` predicate. Access via `ref.subEvent()` on both `Ref` and `WidgetRef`. Listen-only — no `emit()` / `emitAsync()` — auto-triggered when the parent event emits. Sticky cache is independent of the parent; backfills from the parent on first subscription. See section 16 in README for details and examples.
+
 ## 2.5.2
 
 * **Removed `BusMetadataForEmit` class** — `emit()` and `emitAsync()` now accept `source` and `extraData` as direct optional parameters instead of requiring a `BusMetadataForEmit` wrapper.

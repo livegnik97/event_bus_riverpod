@@ -35,6 +35,7 @@ Easy, simple, and fast.
 - **Execution priority** – control listener order with the `priority` parameter (higher values run first); defaults to `0`
 - **BusMetadata** – every emission carries an auto-generated `timestamp`; optionally attach a `source` identifier and arbitrary extra data; access via `*WithMeta` listener methods
 - **Listener filter** – filter which emissions reach a listener with the `where` parameter, using the value and/or its metadata
+- **SubEvents** – create filtered views of events with their own sticky cache and listener list using a mandatory `where` predicate; accessed via `ref.subEvent()`
 
 ## Installing
 
@@ -42,7 +43,7 @@ Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^2.5.2
+  event_bus_riverpod: ^2.6.0
   flutter_riverpod: ^3.0.0
 ```
 
@@ -422,9 +423,6 @@ ref.event(onNullable).listen((v) {
 
 ```dart
 ref.event(onUserLogin).clearSticky(); // next sticky subscriber won't receive anything
-
-// Or clear everything (listeners + sticky values)
-ref.event(onUserLogin).clearListeners();
 ```
 
 ### 12. Middleware pipeline
@@ -724,6 +722,86 @@ action.listen((v) {
 | `listenManuallyAsyncWithMeta(cb, where: ...)` | ✅ |
 | `stream(where: ...)` | ✅ |
 | `streamWithMeta(where: ...)` | ✅ |
+
+### 16. SubEvents
+
+A SubEvent is a **filtered view** of a parent event. It has its own listener list and sticky cache, independent from the parent. Unlike the `where` parameter on regular listeners — which is per-listener and disposable — a SubEvent's `where` predicate is part of its identity and shared across all its listeners.
+
+SubEvents are **listen-only**: they fire automatically when the parent event emits and the value matches the SubEvent's `where`. You never `emit()` to a SubEvent directly.
+
+**Scenario**: A user‑management app has multiple detail pages open at the same time, each for a different user. When any page updates a user, only that user's detail page should react.
+
+```dart
+// Define the parent event
+final onUpdateUser = EventBusIdentifier<User>('onUpdateUser');
+
+// Factory: create a SubEvent per userId
+SubEventIdentifier<User> onUpdateUserOf(String userId) =>
+    SubEventIdentifier(
+      userId,
+      parentEvent: onUpdateUser,
+      where: (user, _) => user.userId == userId,
+    );
+```
+
+Each detail page creates its own SubEvent identity:
+
+```dart
+class UserDetailPage extends ConsumerStatefulWidget {
+  final String userId;
+  // ...
+}
+
+class _UserDetailPageState extends ConsumerState<UserDetailPage> {
+  @override
+  Widget build(BuildContext context) {
+    // Only reacts to updates for widget.userId
+    ref.subEvent(onUpdateUserOf(widget.userId)).listen((user) {
+      ref.read(userDetailProvider(widget.userId).notifier).update(user);
+    });
+
+    return UserDetailContent(userId: widget.userId);
+  }
+}
+```
+
+**Sticky cache**: SubEvents have their own independent sticky cache. When a new subscriber joins with `sticky: true`, the last matching value is delivered immediately — even if the parent event has never been emitted after the SubEvent was created.
+
+```dart
+// Somewhere else: a user is updated
+ref.event(onUpdateUser).emit(User('user-42', name: 'Alice'));
+
+// Later, a new provider subscribes — receives user-42 immediately
+final profileProvider = Provider<void>((ref) {
+  ref.subEvent(onUpdateUserOf('user-42')).listen((user) {
+    print(user.name); // 'Alice' — from SubEvent's sticky cache
+  }, sticky: true);
+});
+```
+
+**SubEvent API** — available on `Ref` (auto-dispose) and `WidgetRef` (manual only):
+
+| Method | Available on `Ref` | Available on `WidgetRef` |
+|--------|-------------------|------------------------|
+| `listen(cb)` / `listenAsync(cb)` | ✅ auto-dispose | ❌ |
+| `listenWithMeta(cb)` / `listenAsyncWithMeta(cb)` | ✅ auto-dispose | ❌ |
+| `listenManually(cb)` / `listenManuallyAsync(cb)` | ✅ | ✅ |
+| `listenManuallyWithMeta(cb)` / `listenManuallyAsyncWithMeta(cb)` | ✅ | ✅ |
+| `stream()` / `streamWithMeta()` | ✅ | ✅ |
+| `hasClients` | ✅ | ✅ |
+| `clearListeners()` / `clearSticky()` | ✅ | ✅ |
+| `emit()` / `emitAsync()` | ❌ | ❌ |
+| `applyMiddleware()` | ❌ (middleware on the parent) | ❌ |
+
+**SubEvent reference table:**
+
+| Feature | Behaviour |
+|---------|-----------|
+| Listen type | Listen‑only; triggered by parent emission |
+| `where` | **Mandatory** — part of the SubEvent identity |
+| Sticky cache | **Independent** of the parent event; backfills from parent on first subscription |
+| `where` in listener | Optional — further narrows per‑listener, applied **after** the SubEvent `where` |
+| Middleware | SubEvents inherit the **parent's** middleware pipeline |
 
 ## Reference
 

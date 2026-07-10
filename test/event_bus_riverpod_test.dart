@@ -1482,4 +1482,368 @@ void main() {
       });
     });
   });
+
+  group('SubEvent', () {
+    test('subEvent receives only values that pass its where', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      globalRef.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+        captured.add(v);
+      });
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(1);
+      globalRef.event(EventBusConstants.onSecureInt).emit(2);
+      globalRef.event(EventBusConstants.onSecureInt).emit(3);
+      globalRef.event(EventBusConstants.onSecureInt).emit(4);
+
+      expect(captured, [2, 4]);
+      container.dispose();
+    });
+
+    test('subEvent with sticky receives last matching cached value', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(1);
+      action.emit(2);
+
+      final captured = <int>[];
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      }));
+
+      expect(captured, [2]);
+      container.dispose();
+    });
+
+    test('subEvent with sticky does not receive non-matching cached value',
+        () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(1);
+      action.emit(3);
+
+      final captured = <int>[];
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      }));
+
+      expect(captured, isEmpty);
+      container.dispose();
+    });
+
+    test('subEvent has its own sticky cache independent from parent', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      // Register a first listener to populate the subEvent cache
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listen((v) {});
+      }));
+
+      action.emit(2);
+      action.emit(4);
+
+      // Clear parent sticky — subEvent should still have its own cache
+      action.clearSticky();
+
+      final captured = <int>[];
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      }));
+
+      expect(captured, [4]);
+      container.dispose();
+    });
+
+    test('subEvent clearSticky removes only subEvent cached value', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      // Register a first listener to populate the subEvent cache
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listen((v) {});
+      }));
+
+      action.emit(2);
+      action.emit(4);
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      subAction.clearSticky();
+      action.clearSticky(); // also clear parent so backfill doesn't interfere
+
+      final captured = <int>[];
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+          captured.add(v);
+        }, sticky: true);
+      }));
+
+      expect(captured, isEmpty);
+      container.dispose();
+    });
+
+    test('subEvent with listenManually and dispose', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      final disposable = subAction.listenManually((v) {
+        captured.add(v);
+      });
+
+      container.read(Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).emit(2);
+      }));
+
+      expect(captured, [2]);
+
+      disposable.dispose();
+
+      container.read(Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).emit(4);
+      }));
+
+      expect(captured, [2]);
+      container.dispose();
+    });
+
+    test('subEvent with listenManually and sticky', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(2);
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      final disposable = subAction.listenManually((v) {
+        captured.add(v);
+      }, sticky: true);
+
+      expect(captured, [2]);
+
+      disposable.dispose();
+      container.dispose();
+    });
+
+    test('subEvent with listenAsync receives matching values', () async {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listenAsync((v) async {
+          captured.add(v);
+        });
+      }));
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      await action.emitAsync(1);
+      await action.emitAsync(2);
+
+      expect(captured, [2]);
+      container.dispose();
+    });
+
+    test('subEvent stream receives filtered values', () async {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      final sub = globalRef
+          .subEvent(EventBusConstants.evenSecureInt)
+          .stream()
+          .listen((v) => captured.add(v));
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(1);
+      globalRef.event(EventBusConstants.onSecureInt).emit(2);
+      globalRef.event(EventBusConstants.onSecureInt).emit(3);
+      globalRef.event(EventBusConstants.onSecureInt).emit(4);
+      await Future(() {});
+
+      expect(captured, [2, 4]);
+
+      await sub.cancel();
+      container.dispose();
+    });
+
+    test('subEvent with additional where in listen further narrows values', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      // even only
+      globalRef.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+        captured.add(v);
+      }, where: (v, _) => v > 2);
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(2);
+      globalRef.event(EventBusConstants.onSecureInt).emit(4);
+      globalRef.event(EventBusConstants.onSecureInt).emit(6);
+
+      expect(captured, [4, 6]);
+      container.dispose();
+    });
+
+    test('multiple subEvents of the same parent work independently', () {
+      final evenCaptured = <int>[];
+      final positiveCaptured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      globalRef.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+        evenCaptured.add(v);
+      });
+      globalRef.subEvent(EventBusConstants.positiveInt).listen((v) {
+        positiveCaptured.add(v);
+      });
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(-2);
+      globalRef.event(EventBusConstants.onSecureInt).emit(0);
+      globalRef.event(EventBusConstants.onSecureInt).emit(3);
+      globalRef.event(EventBusConstants.onSecureInt).emit(4);
+
+      expect(evenCaptured, [-2, 0, 4]);
+      expect(positiveCaptured, [3, 4]);
+      container.dispose();
+    });
+
+    test('subEvent clearListeners removes only subEvent listeners', () {
+      final subEventCaptured = <int>[];
+      final parentCaptured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      globalRef.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+        subEventCaptured.add(v);
+      });
+      globalRef.event(EventBusConstants.onSecureInt).listen((v) {
+        parentCaptured.add(v);
+      });
+
+      container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      ).clearListeners();
+
+      globalRef.event(EventBusConstants.onSecureInt).emit(2);
+      globalRef.event(EventBusConstants.onSecureInt).emit(4);
+
+      expect(subEventCaptured, isEmpty);
+      expect(parentCaptured, [2, 4]);
+      container.dispose();
+    });
+
+    test('subEvent hasClients works correctly', () {
+      final container = ProviderContainer();
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      expect(subAction.hasClients, false);
+
+      final disposable = subAction.listenManually((v) {});
+
+      expect(subAction.hasClients, true);
+
+      disposable.dispose();
+      expect(subAction.hasClients, false);
+
+      container.dispose();
+    });
+
+    test('subEvent auto-dispose cleans up when provider invalidated', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listen((v) {
+          captured.add(v);
+        });
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+      action.emit(2);
+      expect(captured, [2]);
+
+      container.invalidate(listenerProvider);
+      action.emit(4);
+      expect(captured, [2]);
+
+      container.dispose();
+    });
+  });
 }

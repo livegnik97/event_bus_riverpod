@@ -1,5 +1,7 @@
 import 'package:event_bus_riverpod/src/event_bus_action.dart';
 import 'package:event_bus_riverpod/src/event_bus_identifier.dart';
+import 'package:event_bus_riverpod/src/sub_event_action.dart';
+import 'package:event_bus_riverpod/src/sub_event_identifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Extends [Ref] with the [event] method to interact with the event bus.
@@ -19,6 +21,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 extension EventBusForRef on Ref {
   EventBusActionForRef<T> event<T>(EventBusIdentifier<T> event) =>
       EventBusActionForRef<T>(event: event, ref: this);
+
+  SubEventActionForRef<T> subEvent<T>(SubEventIdentifier<T> id) =>
+      SubEventActionForRef<T>(identifier: id, ref: this);
 }
 
 /// Extends [WidgetRef] with the [event] method to interact with the event bus.
@@ -43,4 +48,7 @@ extension EventBusForRef on Ref {
 extension EventBusForWidgetRef on WidgetRef {
   EventBusActionForWidgetRef<T> event<T>(EventBusIdentifier<T> event) =>
       EventBusActionForWidgetRef<T>(event: event, ref: this);
+
+  SubEventActionForWidgetRef<T> subEvent<T>(SubEventIdentifier<T> id) =>
+      SubEventActionForWidgetRef<T>(identifier: id, ref: this);
 }
