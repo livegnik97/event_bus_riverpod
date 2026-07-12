@@ -186,7 +186,8 @@ abstract class EventBusAction<T> {
 
   /// Returns a [Stream] that emits every time this event fires.
   ///
-  /// The stream is single-subscription. It is automatically cleaned up when
+  /// The stream is single-subscription by default. Set [broadcast] to `true` to
+  /// allow multiple subscribers. It is automatically cleaned up when
   /// the stream subscription is cancelled.
   ///
   /// ```dart
@@ -208,16 +209,25 @@ abstract class EventBusAction<T> {
   /// ```dart
   /// ref.event(onCounter).stream(where: (v, _) => v > 0).listen(print);
   /// ```
+  ///
+  /// Use [broadcast] to allow multiple subscribers on the same stream:
+  /// ```dart
+  /// final stream = ref.event(onCounter).stream(broadcast: true);
+  /// stream.listen(print); // subscriber 1
+  /// stream.listen(print); // subscriber 2
+  /// ```
   Stream<T> stream({
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
+    bool broadcast = false,
   });
 
   /// Returns a [Stream] that emits a record `(T, BusMetadata)` every time this
   /// event fires, providing access to metadata alongside the value.
   ///
-  /// The stream is single-subscription. It is automatically cleaned up when
+  /// The stream is single-subscription by default. Set [broadcast] to `true` to
+  /// allow multiple subscribers. It is automatically cleaned up when
   /// the stream subscription is cancelled.
   ///
   /// ```dart
@@ -245,10 +255,18 @@ abstract class EventBusAction<T> {
   /// ```dart
   /// ref.event(onCounter).streamWithMeta(where: (v, _) => v > 0).listen(print);
   /// ```
+  ///
+  /// Use [broadcast] to allow multiple subscribers on the same stream:
+  /// ```dart
+  /// final stream = ref.event(onCounter).streamWithMeta(broadcast: true);
+  /// stream.listen(print); // subscriber 1
+  /// stream.listen(print); // subscriber 2
+  /// ```
   Stream<(T, BusMetadata)> streamWithMeta({
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
+    bool broadcast = false,
   });
 
   /// Removes all listeners registered for this event.
@@ -385,12 +403,14 @@ mixin EventBusActionMixin<T> on EventBusAction<T> {
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
+    bool broadcast = false,
   }) {
     return eventBus.stream(
       event.key,
       sticky: sticky,
       priority: priority,
       where: where,
+      broadcast: broadcast,
     );
   }
 
@@ -399,12 +419,14 @@ mixin EventBusActionMixin<T> on EventBusAction<T> {
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
+    bool broadcast = false,
   }) {
     return eventBus.streamWithMeta(
       event.key,
       sticky: sticky,
       priority: priority,
       where: where,
+      broadcast: broadcast,
     );
   }
 

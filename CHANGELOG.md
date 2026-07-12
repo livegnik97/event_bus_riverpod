@@ -1,3 +1,15 @@
+## 2.7.0
+
+* **Broadcast streams**: added `broadcast` parameter (`false` by default) to `stream()`, `streamWithMeta()`, `streamSubEvent()`, and `streamWithMetaSubEvent()`. When `true`, multiple subscribers can listen on the same stream without errors. Documented in section "8. Stream API — Broadcast mode".
+* **`clearAllEvents()`**: new extension method on both `Ref` and `WidgetRef` that wipes all listeners, subEvent listeners, middlewares, sticky caches, and subEvent registrations in one call. Useful for fully resetting state during user logout or app teardown. Documented in section "9. Clear all listeners — Clear all events".
+* **Better performance on default-priority listeners**: when every listener uses the default `priority: 0`, event delivery now runs in linear time instead of sorting — speeds up emissions for the vast majority of use cases.
+* **Reduced code duplication and more consistent internals**: the action layer was refactored to share common logic via mixins, and the listener notification pipeline (sync, async, subEvents) was unified into a single internal function — less code, fewer bugs, and identical behavior across all event types.
+* **Bug fixes**:
+  * Fixed the `where` filter parameter being silently ignored when listening manually with metadata in async mode (`listenManuallyAsyncWithMeta`) — listeners would receive all events instead of only matching ones.
+  * Fixed `emitAsync()` hanging forever when a middleware cancels the event by not calling `next()` — now resolves correctly without waiting for a cancelled event.
+  * Fixed a rare edge case where removing listeners during cleanup could cause some internal entries to be skipped.
+  * Fixed subEvents with a `where` filter that doesn't match the parent's last cached value repeatedly re-checking that same value on every new sticky subscription — now skips unnecessary checks when the parent value hasn't changed.
+
 ## 2.6.1
 
 * **17 — `lastValue` getter on events and SubEvents**: read the last emitted value directly without subscribing. `EventBusAction<T>.lastValue` and `SubEventAction<T>.lastValue` return `T?` — the sticky-cached value or `null` if nothing has been emitted yet (or after `clearSticky()`). SubEvents auto-register and backfill on first access. See section 17 in README for examples.

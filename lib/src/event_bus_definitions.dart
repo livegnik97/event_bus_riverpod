@@ -21,6 +21,7 @@ class EventBusCore {
   final Map<int, _EventCacheEntry> _subEventLastValues = {};
   final Map<int, List<int>> _parentToSubEventKeys = {};
   final Map<int, dynamic> _subEventWhere = {};
+  final Set<int> _subEventBackfilledNoMatch = {};
 
   BusMetadata _buildMetadata(String? source, dynamic extraData) {
     return BusMetadata(
@@ -334,32 +335,57 @@ class EventBusCore {
     }
   }
 
-  void _notifySync<T>(int key, T value, BusMetadata metadata) {
-    _lastValues[key] = _EventCacheEntry(value, metadata);
-    final listeners = _listeners[key];
-    if (listeners != null) {
-      final sorted = List<_ListenerEntry>.from(listeners)
-        ..sort((a, b) => b.priority.compareTo(a.priority));
+  List<Future<void>> _invokeListeners<T>(
+    List<_ListenerEntry> listeners,
+    T value,
+    BusMetadata metadata, {
+    bool collectAsync = false,
+  }) {
+    if (listeners.isEmpty) return [];
 
-      for (final entry in sorted) {
-        if (entry.isDisposed) continue;
+    final sorted = List<_ListenerEntry>.from(listeners);
+    if (listeners.length > 1) {
+      final firstPriority = listeners.first.priority;
+      final allSame = listeners.every((e) => e.priority == firstPriority);
+      if (!allSame) {
+        sorted.sort((a, b) => b.priority.compareTo(a.priority));
+      }
+    }
 
-        bool canContinue = true;
-        if (entry.where != null) {
-          try {
-            canContinue = (entry.where! as bool Function(T, BusMetadata))(
-              value,
-              metadata,
-            );
-          } catch (e, st) {
-            canContinue = false;
-            if (kDebugMode) {
-              log('[event_bus_riverpod] Error in where: $e\n$st');
-            }
+    final futures = <Future<void>>[];
+
+    for (final entry in sorted) {
+      if (entry.isDisposed) continue;
+
+      if (entry.where != null) {
+        try {
+          if (!(entry.where! as bool Function(T, BusMetadata))(
+            value,
+            metadata,
+          )) {
+            continue;
           }
+        } catch (e, st) {
+          if (kDebugMode) {
+            log('[event_bus_riverpod] Error in where: $e\n$st');
+          }
+          continue;
         }
-        if (!canContinue) continue;
+      }
 
+      if (collectAsync && entry.isAsync) {
+        futures.add(() async {
+          try {
+            if (entry.hasMetadata) {
+              await entry.callback(value, metadata);
+            } else {
+              await entry.callback(value);
+            }
+          } catch (e, st) {
+            _reportError(entry, e, st);
+          }
+        }());
+      } else {
         try {
           if (entry.hasMetadata) {
             entry.callback(value, metadata);
@@ -370,11 +396,19 @@ class EventBusCore {
           _reportError(entry, e, st);
         }
       }
+    }
 
+    return futures;
+  }
+
+  void _notifySync<T>(int key, T value, BusMetadata metadata) {
+    _lastValues[key] = _EventCacheEntry(value, metadata);
+    final listeners = _listeners[key];
+    if (listeners != null) {
+      _invokeListeners(listeners, value, metadata);
       listeners.removeWhere((entry) => entry.isDisposed);
       if (listeners.isEmpty) _listeners.remove(key);
     }
-
     _fireSubEventsSync<T>(key, value, metadata);
   }
 
@@ -382,61 +416,16 @@ class EventBusCore {
     _lastValues[key] = _EventCacheEntry(value, metadata);
     final listeners = _listeners[key];
     if (listeners != null) {
-      final sorted = List<_ListenerEntry>.from(listeners)
-        ..sort((a, b) => b.priority.compareTo(a.priority));
-
-      final futures = <Future<void>>[];
-
-      for (final entry in sorted) {
-        if (entry.isDisposed) continue;
-
-        bool canContinue = true;
-        if (entry.where != null) {
-          try {
-            canContinue = (entry.where! as bool Function(T, BusMetadata))(
-              value,
-              metadata,
-            );
-          } catch (e, st) {
-            canContinue = false;
-            if (kDebugMode) {
-              log('[event_bus_riverpod] Error in where: $e\n$st');
-            }
-          }
-        }
-        if (!canContinue) continue;
-
-        if (entry.isAsync) {
-          futures.add(() async {
-            try {
-              if (entry.hasMetadata) {
-                await entry.callback(value, metadata);
-              } else {
-                await entry.callback(value);
-              }
-            } catch (e, st) {
-              _reportError(entry, e, st);
-            }
-          }());
-        } else {
-          try {
-            if (entry.hasMetadata) {
-              entry.callback(value, metadata);
-            } else {
-              entry.callback(value);
-            }
-          } catch (e, st) {
-            _reportError(entry, e, st);
-          }
-        }
-      }
-
+      final futures = _invokeListeners(
+        listeners,
+        value,
+        metadata,
+        collectAsync: true,
+      );
       await Future.wait(futures);
-
       listeners.removeWhere((entry) => entry.isDisposed);
       if (listeners.isEmpty) _listeners.remove(key);
     }
-
     await _fireSubEventsAsync<T>(key, value, metadata);
   }
 
@@ -448,51 +437,19 @@ class EventBusCore {
       final subWhere = _subEventWhere[subKey];
       if (subWhere == null) continue;
 
-      bool passes;
       try {
-        passes = (subWhere as bool Function(T, BusMetadata))(value, metadata);
+        if (!(subWhere as bool Function(T, BusMetadata))(value, metadata))
+          continue;
       } catch (_) {
         continue;
       }
-      if (!passes) continue;
 
       _subEventLastValues[subKey] = _EventCacheEntry(value, metadata);
 
       final listeners = _subEventListeners[subKey];
       if (listeners == null || listeners.isEmpty) continue;
 
-      final sorted = List<_ListenerEntry>.from(listeners)
-        ..sort((a, b) => b.priority.compareTo(a.priority));
-
-      for (final entry in sorted) {
-        if (entry.isDisposed) continue;
-
-        bool canContinue = true;
-        if (entry.where != null) {
-          try {
-            canContinue = (entry.where! as bool Function(T, BusMetadata))(
-              value,
-              metadata,
-            );
-          } catch (e, st) {
-            canContinue = false;
-            if (kDebugMode) {
-              log('[event_bus_riverpod] Error in subEvent where: $e\n$st');
-            }
-          }
-        }
-        if (!canContinue) continue;
-
-        try {
-          if (entry.hasMetadata) {
-            entry.callback(value, metadata);
-          } else {
-            entry.callback(value);
-          }
-        } catch (e, st) {
-          _reportError(entry, e, st);
-        }
-      }
+      _invokeListeners(listeners, value, metadata);
 
       listeners.removeWhere((entry) => entry.isDisposed);
       if (listeners.isEmpty) {
@@ -517,68 +474,24 @@ class EventBusCore {
       final subWhere = _subEventWhere[subKey];
       if (subWhere == null) continue;
 
-      bool passes;
       try {
-        passes = (subWhere as bool Function(T, BusMetadata))(value, metadata);
+        if (!(subWhere as bool Function(T, BusMetadata))(value, metadata))
+          continue;
       } catch (_) {
         continue;
       }
-      if (!passes) continue;
 
       _subEventLastValues[subKey] = _EventCacheEntry(value, metadata);
 
       final listeners = _subEventListeners[subKey];
       if (listeners == null || listeners.isEmpty) continue;
 
-      final sorted = List<_ListenerEntry>.from(listeners)
-        ..sort((a, b) => b.priority.compareTo(a.priority));
-
-      final futures = <Future<void>>[];
-
-      for (final entry in sorted) {
-        if (entry.isDisposed) continue;
-
-        bool canContinue = true;
-        if (entry.where != null) {
-          try {
-            canContinue = (entry.where! as bool Function(T, BusMetadata))(
-              value,
-              metadata,
-            );
-          } catch (e, st) {
-            canContinue = false;
-            if (kDebugMode) {
-              log('[event_bus_riverpod] Error in subEvent where: $e\n$st');
-            }
-          }
-        }
-        if (!canContinue) continue;
-
-        if (entry.isAsync) {
-          futures.add(() async {
-            try {
-              if (entry.hasMetadata) {
-                await entry.callback(value, metadata);
-              } else {
-                await entry.callback(value);
-              }
-            } catch (e, st) {
-              _reportError(entry, e, st);
-            }
-          }());
-        } else {
-          try {
-            if (entry.hasMetadata) {
-              entry.callback(value, metadata);
-            } else {
-              entry.callback(value);
-            }
-          } catch (e, st) {
-            _reportError(entry, e, st);
-          }
-        }
-      }
-
+      final futures = _invokeListeners(
+        listeners,
+        value,
+        metadata,
+        collectAsync: true,
+      );
       await Future.wait(futures);
 
       listeners.removeWhere((entry) => entry.isDisposed);
@@ -682,30 +595,34 @@ class EventBusCore {
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
+    bool broadcast = false,
   }) {
     _ListenerEntry? entry;
 
     late final StreamController<T> controller;
 
-    controller = StreamController<T>(
-      onListen: () {
-        if (sticky) {
-          _tryDeliverSticky<T>(key, where, (v) => controller.add(v));
-        }
-        entry = _ListenerEntry(
-          (T value) => controller.add(value),
-          priority: priority,
-          where: where,
-        );
-        _listeners.putIfAbsent(key, () => []).add(entry!);
-      },
-      onCancel: () {
-        if (entry != null) {
-          _removeListener(key, entry!);
-          entry = null;
-        }
-      },
-    );
+    void onListen() {
+      if (sticky) {
+        _tryDeliverSticky<T>(key, where, (v) => controller.add(v));
+      }
+      entry = _ListenerEntry(
+        (T value) => controller.add(value),
+        priority: priority,
+        where: where,
+      );
+      _listeners.putIfAbsent(key, () => []).add(entry!);
+    }
+
+    void onCancel() {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+    }
+
+    controller = broadcast
+        ? StreamController<T>.broadcast(onListen: onListen, onCancel: onCancel)
+        : StreamController<T>(onListen: onListen, onCancel: onCancel);
 
     return controller.stream;
   }
@@ -715,35 +632,45 @@ class EventBusCore {
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
+    bool broadcast = false,
   }) {
     _ListenerEntry? entry;
 
     late final StreamController<(T, BusMetadata)> controller;
 
-    controller = StreamController<(T, BusMetadata)>(
-      onListen: () {
-        if (sticky) {
-          _tryDeliverStickyWithMeta<T>(
-            key,
-            where,
-            (v, m) => controller.add((v, m)),
-          );
-        }
-        entry = _ListenerEntry(
-          (T value, BusMetadata metadata) => controller.add((value, metadata)),
-          priority: priority,
-          where: where,
-          hasMetadata: true,
+    void onListenWithMeta() {
+      if (sticky) {
+        _tryDeliverStickyWithMeta<T>(
+          key,
+          where,
+          (v, m) => controller.add((v, m)),
         );
-        _listeners.putIfAbsent(key, () => []).add(entry!);
-      },
-      onCancel: () {
-        if (entry != null) {
-          _removeListener(key, entry!);
-          entry = null;
-        }
-      },
-    );
+      }
+      entry = _ListenerEntry(
+        (T value, BusMetadata metadata) => controller.add((value, metadata)),
+        priority: priority,
+        where: where,
+        hasMetadata: true,
+      );
+      _listeners.putIfAbsent(key, () => []).add(entry!);
+    }
+
+    void onCancel() {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+    }
+
+    controller = broadcast
+        ? StreamController<(T, BusMetadata)>.broadcast(
+            onListen: onListenWithMeta,
+            onCancel: onCancel,
+          )
+        : StreamController<(T, BusMetadata)>(
+            onListen: onListenWithMeta,
+            onCancel: onCancel,
+          );
 
     return controller.stream;
   }
@@ -764,9 +691,14 @@ class EventBusCore {
 
   T? lastValue<T>(int key) => _lastValues[key]?.value as T?;
 
-  T? lastSubEventValue<T>(int subKey) => _subEventLastValues[subKey]?.value as T?;
+  T? lastSubEventValue<T>(int subKey) =>
+      _subEventLastValues[subKey]?.value as T?;
 
-  T? subEventCached<T>(int subKey, int parentKey, ListenerWhere<T> subEventWhere) {
+  T? subEventCached<T>(
+    int subKey,
+    int parentKey,
+    ListenerWhere<T> subEventWhere,
+  ) {
     if (!_subEventLastValues.containsKey(subKey)) {
       if (!_subEventWhere.containsKey(subKey)) {
         _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
@@ -790,11 +722,16 @@ class EventBusCore {
     _subEventLastValues.clear();
     _parentToSubEventKeys.clear();
     _subEventWhere.clear();
+    _subEventBackfilledNoMatch.clear();
   }
 
   // ── SubEvent listener methods ──
 
-  void _ensureSubEventRegistered(int subKey, int parentKey, dynamic subEventWhere) {
+  void _ensureSubEventRegistered(
+    int subKey,
+    int parentKey,
+    dynamic subEventWhere,
+  ) {
     _parentToSubEventKeys.putIfAbsent(parentKey, () => []).add(subKey);
     _subEventWhere.putIfAbsent(subKey, () => subEventWhere);
   }
@@ -805,13 +742,18 @@ class EventBusCore {
     dynamic subEventWhere,
   ) {
     if (_subEventLastValues.containsKey(subKey)) return;
+    if (_subEventBackfilledNoMatch.contains(subKey)) return;
     final parentCached = _lastValues[parentKey];
     if (parentCached == null) return;
     try {
       if (subEventWhere(parentCached.value as T, parentCached.metadata)) {
         _subEventLastValues[subKey] = parentCached;
+      } else {
+        _subEventBackfilledNoMatch.add(subKey);
       }
-    } catch (_) {}
+    } catch (_) {
+      _subEventBackfilledNoMatch.add(subKey);
+    }
   }
 
   void listenSubEvent<T>(
@@ -828,7 +770,13 @@ class EventBusCore {
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     if (sticky) {
-      _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => callback(v));
+      _tryDeliverSubEventSticky<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v) => callback(v),
+      );
     }
     final entry = _ListenerEntry(
       callback,
@@ -856,7 +804,13 @@ class EventBusCore {
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     if (sticky) {
-      _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => callback(v));
+      _tryDeliverSubEventSticky<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v) => callback(v),
+      );
     }
     final entry = _ListenerEntry(
       callback,
@@ -885,7 +839,13 @@ class EventBusCore {
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(subKey, parentKey, subEventWhere, where, (v, m) => callback(v, m));
+      _tryDeliverSubEventStickyWithMeta<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v, m) => callback(v, m),
+      );
     }
     final entry = _ListenerEntry(
       callback,
@@ -914,7 +874,13 @@ class EventBusCore {
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(subKey, parentKey, subEventWhere, where, (v, m) => callback(v, m));
+      _tryDeliverSubEventStickyWithMeta<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v, m) => callback(v, m),
+      );
     }
     final entry = _ListenerEntry(
       callback,
@@ -942,7 +908,13 @@ class EventBusCore {
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     if (sticky) {
-      _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => callback(v));
+      _tryDeliverSubEventSticky<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v) => callback(v),
+      );
     }
     final entry = _ListenerEntry(
       callback,
@@ -966,7 +938,13 @@ class EventBusCore {
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     if (sticky) {
-      _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => callback(v));
+      _tryDeliverSubEventSticky<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v) => callback(v),
+      );
     }
     final entry = _ListenerEntry(
       callback,
@@ -991,7 +969,13 @@ class EventBusCore {
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(subKey, parentKey, subEventWhere, where, (v, m) => callback(v, m));
+      _tryDeliverSubEventStickyWithMeta<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v, m) => callback(v, m),
+      );
     }
     final entry = _ListenerEntry(
       callback,
@@ -1016,7 +1000,13 @@ class EventBusCore {
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(subKey, parentKey, subEventWhere, where, (v, m) => callback(v, m));
+      _tryDeliverSubEventStickyWithMeta<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v, m) => callback(v, m),
+      );
     }
     final entry = _ListenerEntry(
       callback,
@@ -1039,31 +1029,41 @@ class EventBusCore {
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
+    bool broadcast = false,
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     _ListenerEntry? entry;
 
     late final StreamController<T> controller;
 
-    controller = StreamController<T>(
-      onListen: () {
-        if (sticky) {
-          _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => controller.add(v));
-        }
-        entry = _ListenerEntry(
-          (T value) => controller.add(value),
-          priority: priority,
-          where: where,
+    void onListen() {
+      if (sticky) {
+        _tryDeliverSubEventSticky<T>(
+          subKey,
+          parentKey,
+          subEventWhere,
+          where,
+          (v) => controller.add(v),
         );
-        _subEventListeners.putIfAbsent(subKey, () => []).add(entry!);
-      },
-      onCancel: () {
-        if (entry != null) {
-          _removeSubEventListener(subKey, entry!);
-          entry = null;
-        }
-      },
-    );
+      }
+      entry = _ListenerEntry(
+        (T value) => controller.add(value),
+        priority: priority,
+        where: where,
+      );
+      _subEventListeners.putIfAbsent(subKey, () => []).add(entry!);
+    }
+
+    void onCancel() {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+    }
+
+    controller = broadcast
+        ? StreamController<T>.broadcast(onListen: onListen, onCancel: onCancel)
+        : StreamController<T>(onListen: onListen, onCancel: onCancel);
 
     return controller.stream;
   }
@@ -1075,38 +1075,48 @@ class EventBusCore {
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
+    bool broadcast = false,
   }) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
     _ListenerEntry? entry;
 
     late final StreamController<(T, BusMetadata)> controller;
 
-    controller = StreamController<(T, BusMetadata)>(
-      onListen: () {
-        if (sticky) {
-          _tryDeliverSubEventStickyWithMeta<T>(
-            subKey,
-            parentKey,
-            subEventWhere,
-            where,
-            (v, m) => controller.add((v, m)),
-          );
-        }
-        entry = _ListenerEntry(
-          (T value, BusMetadata metadata) => controller.add((value, metadata)),
-          priority: priority,
-          where: where,
-          hasMetadata: true,
+    void onListen() {
+      if (sticky) {
+        _tryDeliverSubEventStickyWithMeta<T>(
+          subKey,
+          parentKey,
+          subEventWhere,
+          where,
+          (v, m) => controller.add((v, m)),
         );
-        _subEventListeners.putIfAbsent(subKey, () => []).add(entry!);
-      },
-      onCancel: () {
-        if (entry != null) {
-          _removeSubEventListener(subKey, entry!);
-          entry = null;
-        }
-      },
-    );
+      }
+      entry = _ListenerEntry(
+        (T value, BusMetadata metadata) => controller.add((value, metadata)),
+        priority: priority,
+        where: where,
+        hasMetadata: true,
+      );
+      _subEventListeners.putIfAbsent(subKey, () => []).add(entry!);
+    }
+
+    void onCancel() {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+    }
+
+    controller = broadcast
+        ? StreamController<(T, BusMetadata)>.broadcast(
+            onListen: onListen,
+            onCancel: onCancel,
+          )
+        : StreamController<(T, BusMetadata)>(
+            onListen: onListen,
+            onCancel: onCancel,
+          );
 
     return controller.stream;
   }
@@ -1125,6 +1135,7 @@ class EventBusCore {
     if (_subEventListeners[subKey]?.isEmpty ?? false) {
       _subEventListeners.remove(subKey);
       _subEventWhere.remove(subKey);
+      _subEventBackfilledNoMatch.remove(subKey);
       for (final v in _parentToSubEventKeys.values) {
         v.remove(subKey);
       }
@@ -1135,13 +1146,17 @@ class EventBusCore {
   void clearSubEvent(int subKey) {
     _subEventListeners.remove(subKey);
     _subEventWhere.remove(subKey);
+    _subEventBackfilledNoMatch.remove(subKey);
     for (final v in _parentToSubEventKeys.values) {
       v.remove(subKey);
     }
     _parentToSubEventKeys.removeWhere((_, v) => v.isEmpty);
   }
 
-  void clearSubEventSticky(int subKey) => _subEventLastValues.remove(subKey);
+  void clearSubEventSticky(int subKey) {
+    _subEventLastValues.remove(subKey);
+    _subEventBackfilledNoMatch.remove(subKey);
+  }
 }
 
 class _ListenerEntry {

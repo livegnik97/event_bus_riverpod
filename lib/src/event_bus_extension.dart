@@ -1,5 +1,6 @@
 import 'package:event_bus_riverpod/src/event_bus_action.dart';
 import 'package:event_bus_riverpod/src/event_bus_identifier.dart';
+import 'package:event_bus_riverpod/src/event_bus_provider.dart';
 import 'package:event_bus_riverpod/src/sub_event_action.dart';
 import 'package:event_bus_riverpod/src/sub_event_identifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +25,10 @@ extension EventBusForRef on Ref {
 
   SubEventActionForRef<T> subEvent<T>(SubEventIdentifier<T> id) =>
       SubEventActionForRef<T>(identifier: id, ref: this);
+
+  /// Clears all event bus state: listeners, sticky caches, middlewares,
+  /// and subEvents for every event.
+  void clearAllEvents() => read(eventBusProvider).clearAll();
 }
 
 /// Extends [WidgetRef] with the [event] method to interact with the event bus.
@@ -51,4 +56,8 @@ extension EventBusForWidgetRef on WidgetRef {
 
   SubEventActionForWidgetRef<T> subEvent<T>(SubEventIdentifier<T> id) =>
       SubEventActionForWidgetRef<T>(identifier: id, ref: this);
+
+  /// Clears all event bus state: listeners, sticky caches, middlewares,
+  /// and subEvents for every event.
+  void clearAllEvents() => read(eventBusProvider).clearAll();
 }
