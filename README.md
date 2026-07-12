@@ -57,7 +57,8 @@ Easy, simple, and fast.
 - [15. Listener filter](#15-listener-filter-with-where)
 - [16. SubEvents](#16-subevents)
 - [17. One-shot listeners](#17-one-shot-listeners-listenonce)
-- [18. Event history](#18-event-history)
+- [18. Event history (last N values)](#18-event-history-last-n-values)
+- [19. Logger interceptor](#19-logger-interceptor)
 
 ## Installing
 
@@ -1161,7 +1162,7 @@ print(ref.subEvent(evens).history.length);     // 5  (only evens)
 
 ---
 
-## 19. Logger interceptor
+### 19. Logger interceptor
 
 Register a global callback that fires for **every event emission**, before middlewares are applied. Useful for logging, analytics, or debugging.
 
