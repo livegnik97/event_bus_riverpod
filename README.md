@@ -57,6 +57,7 @@ Easy, simple, and fast.
 - [15. Listener filter](#15-listener-filter-with-where)
 - [16. SubEvents](#16-subevents)
 - [17. One-shot listeners](#17-one-shot-listeners-listenonce)
+- [18. Event history](#18-event-history)
 
 ## Installing
 
@@ -1064,3 +1065,96 @@ ref.subEvent(evenSecureInt).listenOnce((v) {
 | `listenOnceManuallyWithMeta(cb)` | Both | ❌ | `ListenerDisposable` |
 
 All methods are also available on subEvents via `ref.subEvent(...)`.`listenOnce(...)` / `listenOnceManually(...)`.
+
+### 18. Event history (last N values)
+
+Each event can optionally keep a circular buffer of the last N emitted values. Configure the buffer size at identifier creation time:
+
+```dart
+final onCounter = EventBusIdentifier<int>('onCounter', historySize: 20);
+```
+
+The history stores **post-middleware** values with their `BusMetadata`. Read it at any time without subscribing:
+
+```dart
+final recent = ref.event(onCounter).history;
+// => List<ValueWithMeta<int>> — [ValueWithMeta(1, meta), ValueWithMeta(2, meta), ...]
+
+print('Last value: ${recent.last.value}');
+print('At: ${recent.last.metadata.timestamp}');
+```
+
+The buffer is circular — older values are dropped when the size is exceeded:
+
+```dart
+final onCounter = EventBusIdentifier<int>('onCounter', historySize: 3);
+
+ref.event(onCounter).emit(1);
+ref.event(onCounter).emit(2);
+ref.event(onCounter).emit(3);
+ref.event(onCounter).emit(4);
+ref.event(onCounter).emit(5);
+
+print(ref.event(onCounter).history.map((e) => e.value).toList());
+// => [3, 4, 5]  (1 and 2 were dropped)
+```
+
+**Real-world example**: track whether a value actually changed. Set `historySize: 2` and compare the previous and current values inside a listener:
+
+```dart
+final onBatteryLevel = EventBusIdentifier<double>('onBatteryLevel', historySize: 2);
+
+final batteryProvider = Provider<void>((ref) {
+  ref.event(onBatteryLevel).listen((level) {
+    final h = ref.event(onBatteryLevel).history;
+    if (h.length >= 2) {
+      final prev = h[h.length - 2].value;
+      if ((level - prev).abs() > 0.05) {
+        log('Battery changed significantly: $prev → $level');
+        // Update UI, trigger alerts, etc.
+      }
+    } else {
+      log('First battery reading: $level');
+    }
+  });
+});
+```
+
+Clear the history without affecting listeners or sticky cache:
+
+```dart
+ref.event(onCounter).clearHistory();
+print(ref.event(onCounter).history); // []
+```
+
+**SubEvents** have their own independent history, populated only with values that pass their `where`:
+
+```dart
+final onCounter = EventBusIdentifier<int>('onCounter', historySize: 10);
+final evens = SubEventIdentifier<int>(
+  'evens',
+  parentEvent: onCounter,
+  where: (v, _) => v.isEven,
+  historySize: 5,
+);
+
+// ... subscribe to evens, then emit
+for (int i = 1; i <= 10; i++) {
+  ref.event(onCounter).emit(i);
+}
+
+print(ref.event(onCounter).history.length);   // 10
+print(ref.subEvent(evens).history.length);     // 5  (only evens)
+```
+
+**Rules:**
+
+| Setting | Default | Behaviour |
+|---------|---------|-----------|
+| `historySize` | `0` | No history kept. Overhead is zero. |
+| `assert` | `historySize >= 0` | Negative values throw at construction time. |
+| Storage | Post-middleware | Coherent with sticky cache and listener delivery. |
+| `clearHistory()` | — | Empties the buffer; next emission starts fresh. |
+| `clearSticky()` | — | Does **not** affect history. |
+| `clearAllEvents()` | — | Also clears all history. |
+| `clearListeners()` | — | Does **not** affect history. |

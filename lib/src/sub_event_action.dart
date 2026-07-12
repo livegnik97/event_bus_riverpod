@@ -87,6 +87,10 @@ abstract class SubEventAction<T> {
   /// or `null` if nothing has been emitted yet (or after [clearSticky]).
   T? get lastValue;
 
+  List<ValueWithMeta<T>> get history;
+
+  void clearHistory();
+
   /// Subscribes to the **next** matching emission only, then auto-unsubscribes.
   ///
   /// Returns a [ListenerDisposable] to cancel before it fires.
@@ -252,6 +256,16 @@ mixin SubEventActionMixin<T> on SubEventAction<T> {
       );
 
   @override
+  List<ValueWithMeta<T>> get history {
+    eventBus.setHistorySize(identifier.key, identifier.historySize);
+    eventBus.ensureSubEventRegistered(identifier.key, identifier.parentEvent.key, identifier.where);
+    return eventBus.history<T>(identifier.key);
+  }
+
+  @override
+  void clearHistory() => eventBus.clearHistory(identifier.key);
+
+  @override
   ListenerDisposable listenOnceManually(
     ListenerCallback<T> callback, {
     void Function(Object, StackTrace)? onError,
@@ -298,7 +312,9 @@ class SubEventActionForRef<T> extends SubEventAction<T>
     with SubEventActionMixin<T> {
   final Ref ref;
 
-  SubEventActionForRef({required super.identifier, required this.ref});
+  SubEventActionForRef({required super.identifier, required this.ref}) {
+    eventBus.setHistorySize(identifier.key, identifier.historySize);
+  }
 
   @override
   EventBusCore get eventBus => ref.read(eventBusProvider);
@@ -439,7 +455,9 @@ class SubEventActionForWidgetRef<T> extends SubEventAction<T>
     with SubEventActionMixin<T> {
   final WidgetRef ref;
 
-  SubEventActionForWidgetRef({required super.identifier, required this.ref});
+  SubEventActionForWidgetRef({required super.identifier, required this.ref}) {
+    eventBus.setHistorySize(identifier.key, identifier.historySize);
+  }
 
   @override
   EventBusCore get eventBus => ref.read(eventBusProvider);

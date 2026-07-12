@@ -2434,4 +2434,201 @@ void main() {
       container.dispose();
     });
   });
+
+  group('history', () {
+    test('history vacío antes de emitir', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      expect(action.history, isEmpty);
+      container.dispose();
+    });
+
+    test('history captura valores emitidos en orden', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      action.emit(10);
+      action.emit(20);
+      action.emit(30);
+
+      final h = action.history;
+      expect(h.length, 3);
+      expect(h[0].value, 10);
+      expect(h[1].value, 20);
+      expect(h[2].value, 30);
+      container.dispose();
+    });
+
+    test('history respeta historySize', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      for (int i = 1; i <= 10; i++) {
+        action.emit(i);
+      }
+
+      final h = action.history;
+      expect(h.length, 5);
+      expect(h[0].value, 6);
+      expect(h[4].value, 10);
+      container.dispose();
+    });
+
+    test('history guarda metadata', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      action.emit(1, source: 'test', extraData: {'key': 42});
+
+      final h = action.history;
+      expect(h.length, 1);
+      expect(h[0].value, 1);
+      expect(h[0].metadata.source, 'test');
+      expect(h[0].metadata.extraData, {'key': 42});
+      container.dispose();
+    });
+
+    test('history guarda valor post-middleware', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      action.applyMiddleware((value, next) => next(value * 10));
+      action.emit(5);
+
+      final h = action.history;
+      expect(h.length, 1);
+      expect(h[0].value, 50);
+      container.dispose();
+    });
+
+    test('clearHistory vacía el buffer', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      action.emit(1);
+      action.emit(2);
+      expect(action.history.length, 2);
+
+      action.clearHistory();
+      expect(action.history, isEmpty);
+
+      action.emit(3);
+      expect(action.history.length, 1);
+      expect(action.history[0].value, 3);
+      container.dispose();
+    });
+
+    test('historySize 0 no captura nada', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+      action.emit(1);
+      action.emit(2);
+      expect(action.history, isEmpty);
+      container.dispose();
+    });
+
+    test('subEvent history independiente del padre', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.historyEvenInt),
+        ),
+      );
+      // Register the subEvent so it fires on parent emit
+      subAction.listen((v) {});
+
+      action.emit(1);
+      action.emit(2);
+      action.emit(3);
+      action.emit(4);
+
+      final parentHistory = action.history;
+      expect(parentHistory.length, 4);
+
+      final subHistory = subAction.history;
+      expect(subHistory.length, 2);
+      expect(subHistory[0].value, 2);
+      expect(subHistory[1].value, 4);
+      container.dispose();
+    });
+
+    test('subEvent history respeta su historySize', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.historyEvenInt),
+        ),
+      );
+      subAction.listen((v) {});
+      for (int i = 1; i <= 10; i++) {
+        action.emit(i);
+      }
+
+      final subHistory = subAction.history;
+      expect(subHistory.length, 3);
+      expect(subHistory[0].value, 6);
+      expect(subHistory[1].value, 8);
+      expect(subHistory[2].value, 10);
+      container.dispose();
+    });
+
+    test('clearHistory en subEvent', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onHistoryInt),
+        ),
+      );
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.historyEvenInt),
+        ),
+      );
+      subAction.listen((v) {});
+      action.emit(2);
+      action.emit(4);
+      expect(subAction.history.length, 2);
+
+      subAction.clearHistory();
+      expect(subAction.history, isEmpty);
+
+      action.emit(6);
+      expect(subAction.history.length, 1);
+      expect(subAction.history[0].value, 6);
+      container.dispose();
+    });
+  });
 }

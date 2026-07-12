@@ -22,6 +22,8 @@ class EventBusCore {
   final Map<int, List<int>> _parentToSubEventKeys = {};
   final Map<int, dynamic> _subEventWhere = {};
   final Set<int> _subEventBackfilledNoMatch = {};
+  final Map<int, List<ValueWithMeta<Object?>>> _histories = {};
+  final Map<int, int> _historySizes = {};
 
   BusMetadata _buildMetadata(String? source, dynamic extraData) {
     return BusMetadata(
@@ -29,6 +31,16 @@ class EventBusCore {
       source: source,
       extraData: extraData,
     );
+  }
+
+  void _appendToHistory(int key, Object? value, BusMetadata metadata) {
+    final size = _historySizes[key];
+    if (size == null || size == 0) return;
+    final list = _histories.putIfAbsent(key, () => []);
+    list.add(ValueWithMeta<Object?>(value, metadata));
+    while (list.length > size) {
+      list.removeAt(0);
+    }
   }
 
   void _tryDeliverSticky<T>(
@@ -547,6 +559,7 @@ class EventBusCore {
 
   void _notifySync<T>(int key, T value, BusMetadata metadata) {
     _lastValues[key] = _EventCacheEntry(value, metadata);
+    _appendToHistory(key, value, metadata);
     final listeners = _listeners[key];
     if (listeners != null) {
       _invokeListeners(listeners, value, metadata);
@@ -558,6 +571,7 @@ class EventBusCore {
 
   Future<void> _notifyAsync<T>(int key, T value, BusMetadata metadata) async {
     _lastValues[key] = _EventCacheEntry(value, metadata);
+    _appendToHistory(key, value, metadata);
     final listeners = _listeners[key];
     if (listeners != null) {
       final futures = _invokeListeners(
@@ -589,6 +603,7 @@ class EventBusCore {
       }
 
       _subEventLastValues[subKey] = _EventCacheEntry(value, metadata);
+      _appendToHistory(subKey, value, metadata);
 
       final listeners = _subEventListeners[subKey];
       if (listeners == null || listeners.isEmpty) continue;
@@ -626,6 +641,7 @@ class EventBusCore {
       }
 
       _subEventLastValues[subKey] = _EventCacheEntry(value, metadata);
+      _appendToHistory(subKey, value, metadata);
 
       final listeners = _subEventListeners[subKey];
       if (listeners == null || listeners.isEmpty) continue;
@@ -858,6 +874,28 @@ class EventBusCore {
 
   void clearMiddlewares(int key) => _middlewares.remove(key);
 
+  void setHistorySize(int key, int size) {
+    assert(size >= 0, 'historySize must be >= 0');
+    if (size > 0) {
+      _historySizes[key] = size;
+    } else {
+      _historySizes.remove(key);
+      _histories.remove(key);
+    }
+  }
+
+  List<ValueWithMeta<T>> history<T>(int key) {
+    final list = _histories[key];
+    if (list == null) return [];
+    return list.map((e) => ValueWithMeta<T>(e.value as T, e.metadata)).toList();
+  }
+
+  void clearHistory(int key) => _histories.remove(key);
+
+  void ensureSubEventRegistered(int subKey, int parentKey, dynamic subEventWhere) {
+    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+  }
+
   void clearAll() {
     _listeners.clear();
     _lastValues.clear();
@@ -867,6 +905,8 @@ class EventBusCore {
     _parentToSubEventKeys.clear();
     _subEventWhere.clear();
     _subEventBackfilledNoMatch.clear();
+    _histories.clear();
+    _historySizes.clear();
   }
 
   // ── SubEvent listener methods ──
@@ -876,6 +916,7 @@ class EventBusCore {
     int parentKey,
     dynamic subEventWhere,
   ) {
+    if (_subEventWhere.containsKey(subKey)) return;
     _parentToSubEventKeys.putIfAbsent(parentKey, () => []).add(subKey);
     _subEventWhere.putIfAbsent(subKey, () => subEventWhere);
   }

@@ -320,6 +320,25 @@ abstract class EventBusAction<T> {
   /// (or after [clearSticky]).
   T? get lastValue;
 
+  /// Returns the last [historySize] emitted values with their metadata, ordered
+  /// chronologically. The most recent value is at the end of the list.
+  ///
+  /// Configured via [EventBusIdentifier.historySize]. Returns an empty list
+  /// if [historySize] is 0 (the default).
+  ///
+  /// ```dart
+  /// final onCounter = EventBusIdentifier<int>('onCounter', historySize: 10);
+  /// // ...
+  /// ref.event(onCounter).emit(1);
+  /// ref.event(onCounter).emit(2);
+  /// print(ref.event(onCounter).history); // [(1, meta), (2, meta)]
+  /// ```
+  List<ValueWithMeta<T>> get history;
+
+  /// Clears the event history buffer without affecting listeners, sticky cache,
+  /// or middlewares.
+  void clearHistory();
+
   /// Subscribes to the **next** emission only, then automatically unsubscribes.
   ///
   /// Returns a [ListenerDisposable] that can be used to cancel the one-shot
@@ -460,11 +479,13 @@ mixin EventBusActionMixin<T> on EventBusAction<T> {
 
   @override
   void emit(T value, {String? source, dynamic extraData}) {
+    eventBus.setHistorySize(event.key, event.historySize);
     eventBus.emit(event.key, value, source: source, extraData: extraData);
   }
 
   @override
   Future<void> emitAsync(T value, {String? source, dynamic extraData}) {
+    eventBus.setHistorySize(event.key, event.historySize);
     return eventBus.emitAsync(event.key, value, source: source, extraData: extraData);
   }
 
@@ -495,6 +516,15 @@ mixin EventBusActionMixin<T> on EventBusAction<T> {
 
   @override
   T? get lastValue => eventBus.lastValue<T>(event.key);
+
+  @override
+  List<ValueWithMeta<T>> get history {
+    eventBus.setHistorySize(event.key, event.historySize);
+    return eventBus.history<T>(event.key);
+  }
+
+  @override
+  void clearHistory() => eventBus.clearHistory(event.key);
 
   @override
   ListenerDisposable listenOnceManually(

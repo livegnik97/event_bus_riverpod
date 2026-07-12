@@ -5,3 +5,10 @@ class BusMetadata {
 
   const BusMetadata({required this.timestamp, this.source, this.extraData});
 }
+
+class ValueWithMeta<T> {
+  final T value;
+  final BusMetadata metadata;
+
+  const ValueWithMeta(this.value, this.metadata);
+}

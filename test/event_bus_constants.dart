@@ -8,6 +8,10 @@ class EventBusConstants {
   static final onUserName = EventBusIdentifier<String>("onUserName");
   static final onUserAge = EventBusIdentifier<int>("onUserAge");
   static final onLoginStatus = EventBusIdentifier<bool>("onLoginStatus");
+  static final onHistoryInt = EventBusIdentifier<int>(
+    "onHistoryInt",
+    historySize: 5,
+  );
 
   // SubEvents
   static final evenSecureInt = SubEventIdentifier<int>(
@@ -19,5 +23,11 @@ class EventBusConstants {
     'positive',
     parentEvent: onSecureInt,
     where: (v, _) => v > 0,
+  );
+  static final historyEvenInt = SubEventIdentifier<int>(
+    'historyEven',
+    parentEvent: onHistoryInt,
+    where: (v, _) => v.isEven,
+    historySize: 3,
   );
 }
