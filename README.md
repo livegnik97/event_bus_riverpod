@@ -38,6 +38,25 @@ Easy, simple, and fast.
 - **SubEvents** – create filtered views of events with their own sticky cache and listener list using a mandatory `where` predicate; accessed via `ref.subEvent()`
 - **Full reset** – wipe all listeners, sticky caches, middlewares, and subEvents at once with `ref.clearAllEvents()`
 
+## Table of Contents
+
+- [1. Define an event identifier](#1-define-an-event-identifier)
+- [2. Listen and emit inside a provider](#2-listen-and-emit-inside-a-provider)
+- [3. Listen and emit inside a widget](#3-listen-and-emit-inside-a-widget-with-widgetref)
+- [4. Manual subscription](#4-manual-subscription-with-listenmanually)
+- [5. Check active listeners](#5-check-if-an-event-has-active-listeners)
+- [6. Null-safe events](#6-null-safe-events)
+- [7. Error handling](#7-error-handling-with-onerror)
+- [8. Stream API](#8-stream-api)
+- [9. Clear listeners and events](#9-clear-all-listeners-of-an-event)
+- [10. Async listeners](#10-async-listeners)
+- [11. Sticky events and last value](#11-sticky-events-last-value-cache)
+- [12. Middleware pipeline](#12-middleware-pipeline)
+- [13. Execution priority](#13-execution-priority)
+- [14. BusMetadata](#14-busmetadata-emission-metadata)
+- [15. Listener filter](#15-listener-filter-with-where)
+- [16. SubEvents](#16-subevents)
+
 ## Installing
 
 Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
