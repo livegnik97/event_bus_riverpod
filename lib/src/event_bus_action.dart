@@ -584,6 +584,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 
@@ -742,6 +743,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
     );
   }
 

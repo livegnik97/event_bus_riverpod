@@ -644,18 +644,23 @@ class _EventBus {
       return;
     }
 
-    final completer = Completer<void>();
+    bool completed = false;
+    T? finalValue;
     int i = 0;
     void next(T val) {
       if (i < chain.length) {
         (chain[i++].callback as EventMiddleware<T>)(val, next);
       } else {
-        _notifyAsync(key, val, metadata).then((_) => completer.complete());
+        completed = true;
+        finalValue = val;
       }
     }
 
     next(value);
-    await completer.future;
+
+    if (completed) {
+      await _notifyAsync(key, finalValue as T, metadata);
+    }
   }
 
   ListenerDisposable applyMiddleware<T>(
@@ -1120,21 +1125,20 @@ class _EventBus {
     if (_subEventListeners[subKey]?.isEmpty ?? false) {
       _subEventListeners.remove(subKey);
       _subEventWhere.remove(subKey);
-      // Also cleanup parent mapping
-      _parentToSubEventKeys.removeWhere((_, v) {
+      for (final v in _parentToSubEventKeys.values) {
         v.remove(subKey);
-        return v.isEmpty;
-      });
+      }
+      _parentToSubEventKeys.removeWhere((_, v) => v.isEmpty);
     }
   }
 
   void clearSubEvent(int subKey) {
     _subEventListeners.remove(subKey);
     _subEventWhere.remove(subKey);
-    _parentToSubEventKeys.removeWhere((_, v) {
+    for (final v in _parentToSubEventKeys.values) {
       v.remove(subKey);
-      return v.isEmpty;
-    });
+    }
+    _parentToSubEventKeys.removeWhere((_, v) => v.isEmpty);
   }
 
   void clearSubEventSticky(int subKey) => _subEventLastValues.remove(subKey);
