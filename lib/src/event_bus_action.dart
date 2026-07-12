@@ -297,6 +297,10 @@ abstract class EventBusAction<T> {
   /// }
   /// ```
   bool get hasClients;
+
+  /// The last emitted value, or `null` if nothing has been emitted yet
+  /// (or after [clearSticky]).
+  T? get lastValue;
 }
 
 /// [EventBusAction] implementation tied to a [Ref] for automatic lifecycle
@@ -652,6 +656,9 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
   bool get hasClients {
     return ref.read(eventBusProvider).hasClients(event.key);
   }
+
+  @override
+  T? get lastValue => ref.read(eventBusProvider).lastValue<T>(event.key);
 }
 
 /// [EventBusAction] implementation tied to a [WidgetRef], used from widgets.
@@ -807,4 +814,7 @@ class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
   bool get hasClients {
     return ref.read(eventBusProvider).hasClients(event.key);
   }
+
+  @override
+  T? get lastValue => ref.read(eventBusProvider).lastValue<T>(event.key);
 }

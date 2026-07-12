@@ -757,6 +757,20 @@ class _EventBus {
     }
   }
 
+  T? lastValue<T>(int key) => _lastValues[key]?.value as T?;
+
+  T? lastSubEventValue<T>(int subKey) => _subEventLastValues[subKey]?.value as T?;
+
+  T? subEventCached<T>(int subKey, int parentKey, ListenerWhere<T> subEventWhere) {
+    if (!_subEventLastValues.containsKey(subKey)) {
+      if (!_subEventWhere.containsKey(subKey)) {
+        _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+      }
+      _backfillSubEventStickyFromParent<T>(subKey, parentKey, subEventWhere);
+    }
+    return _subEventLastValues[subKey]?.value as T?;
+  }
+
   void clearEvent(int key) => _listeners.remove(key);
 
   void clearSticky(int key) => _lastValues.remove(key);

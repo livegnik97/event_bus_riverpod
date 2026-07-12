@@ -1845,5 +1845,101 @@ void main() {
 
       container.dispose();
     });
+
+    test('lastValue returns null before emission', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+      expect(action.lastValue, isNull);
+      container.dispose();
+    });
+
+    test('lastValue returns emitted value', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+      action.emit(42);
+      expect(action.lastValue, 42);
+      action.emit(100);
+      expect(action.lastValue, 100);
+      container.dispose();
+    });
+
+    test('lastValue returns null after clearSticky', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+      action.emit(42);
+      expect(action.lastValue, 42);
+      action.clearSticky();
+      expect(action.lastValue, isNull);
+      container.dispose();
+    });
+
+    test('subEvent lastValue returns null before emission', () {
+      final container = ProviderContainer();
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+      expect(subAction.lastValue, isNull);
+      container.dispose();
+    });
+
+    test('subEvent lastValue returns matching value after emission', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+      action.emit(1); // odd, shouldn't reach subEvent
+      expect(subAction.lastValue, isNull);
+
+      action.emit(2); // even, should reach subEvent
+      expect(subAction.lastValue, 2);
+
+      action.emit(4); // even, should update
+      expect(subAction.lastValue, 4);
+
+      container.dispose();
+    });
+
+    test('subEvent lastValue returns null after clearSticky', () {
+      final container = ProviderContainer();
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+      action.emit(2);
+      expect(subAction.lastValue, 2);
+
+      subAction.clearSticky();
+      action.clearSticky(); // prevent backfill
+      expect(subAction.lastValue, isNull);
+
+      container.dispose();
+    });
   });
 }

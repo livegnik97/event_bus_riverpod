@@ -1,3 +1,7 @@
+## 2.6.1
+
+* **17 — `lastValue` getter on events and SubEvents**: read the last emitted value directly without subscribing. `EventBusAction<T>.lastValue` and `SubEventAction<T>.lastValue` return `T?` — the sticky-cached value or `null` if nothing has been emitted yet (or after `clearSticky()`). SubEvents auto-register and backfill on first access. See section 17 in README for examples.
+
 ## 2.6.0
 
 * **16 — SubEvents**: filtered views of events with their own listener list, sticky cache, and a mandatory `where` predicate. Access via `ref.subEvent()` on both `Ref` and `WidgetRef`. Listen-only — no `emit()` / `emitAsync()` — auto-triggered when the parent event emits. Sticky cache is independent of the parent; backfills from the parent on first subscription. See section 16 in README for details and examples.

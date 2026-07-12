@@ -76,6 +76,10 @@ abstract class SubEventAction<T> {
 
   /// Whether there is at least one active listener for this subEvent.
   bool get hasClients;
+
+  /// The last value that passed this subEvent's `where` predicate,
+  /// or `null` if nothing has been emitted yet (or after [clearSticky]).
+  T? get lastValue;
 }
 
 /// [SubEventAction] implementation tied to a [Ref] for automatic lifecycle
@@ -307,6 +311,13 @@ class SubEventActionForRef<T> extends SubEventAction<T> {
   bool get hasClients {
     return ref.read(eventBusProvider).subEventHasClients(identifier.key);
   }
+
+  @override
+  T? get lastValue => ref.read(eventBusProvider).subEventCached<T>(
+        identifier.key,
+        identifier.parentEvent.key,
+        identifier.where,
+      );
 }
 
 /// [SubEventAction] implementation tied to a [WidgetRef], used from widgets.
@@ -449,4 +460,11 @@ class SubEventActionForWidgetRef<T> extends SubEventAction<T> {
   bool get hasClients {
     return ref.read(eventBusProvider).subEventHasClients(identifier.key);
   }
+
+  @override
+  T? get lastValue => ref.read(eventBusProvider).subEventCached<T>(
+        identifier.key,
+        identifier.parentEvent.key,
+        identifier.where,
+      );
 }

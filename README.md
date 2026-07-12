@@ -43,7 +43,7 @@ Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^2.6.0
+  event_bus_riverpod: ^2.6.1
   flutter_riverpod: ^3.0.0
 ```
 
@@ -802,6 +802,71 @@ final profileProvider = Provider<void>((ref) {
 | Sticky cache | **Independent** of the parent event; backfills from parent on first subscription |
 | `where` in listener | Optional — further narrows per‑listener, applied **after** the SubEvent `where` |
 | Middleware | SubEvents inherit the **parent's** middleware pipeline |
+
+### 17. Last value (cached value)
+
+Both `EventBusAction<T>` and `SubEventAction<T>` expose `T? get lastValue` to read the last emitted value directly — without subscribing. This is useful when you need to know the current state of an event or subEvent, for example to initialize a form field or show a snapshot.
+
+```dart
+// Read the last emitted value of an event
+final lastUser = ref.event(onUserLogin).lastValue;
+if (lastUser != null) {
+  print('Last logged in user: ${lastUser.name}');
+}
+```
+
+```dart
+// After emitting, lastValue reflects the latest value
+ref.event(onSecureInt).emit(42);
+print(ref.event(onSecureInt).lastValue); // 42
+
+ref.event(onSecureInt).emit(100);
+print(ref.event(onSecureInt).lastValue); // 100
+```
+
+```dart
+// Before any emission, lastValue is null
+print(ref.event(onSecureInt).lastValue); // null
+```
+
+```dart
+// After clearSticky(), lastValue returns null
+ref.event(onSecureInt).emit(42);
+ref.event(onSecureInt).clearSticky();
+print(ref.event(onSecureInt).lastValue); // null
+```
+
+```dart
+// Same API works on SubEvents
+final evenAction = ref.subEvent(evenSecureInt);
+
+print(evenAction.lastValue); // null — nothing emitted yet
+
+ref.event(onSecureInt).emit(2); // 2 is even, passes the where
+print(evenAction.lastValue); // 2
+
+ref.event(onSecureInt).emit(3); // 3 is odd, does not pass
+print(evenAction.lastValue); // 2 — still the last matching value
+```
+
+```dart
+// Combine with WidgetRef in a widget
+class UserStatusBadge extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final online = ref.event(onUserOnline).lastValue;
+    return Badge(
+      color: online == true ? Colors.green : Colors.grey,
+      child: const Icon(Icons.person),
+    );
+  }
+}
+```
+
+| Context | Getter |
+|---------|--------|
+| `EventBusAction<T>` | `T? get lastValue` |
+| `SubEventAction<T>` | `T? get lastValue` |
 
 ## Reference
 
