@@ -311,6 +311,38 @@ The `broadcast` parameter is available on all stream methods:
 
 Stream methods also support `sticky`, `priority`, and `where` — see their respective sections for details.
 
+#### Recipe: event as a reactive Riverpod provider
+
+Wrap the stream in a `StreamProvider` to make any event a reactive provider:
+
+```dart
+final counterProvider = StreamProvider<int>((ref) {
+  return ref.event(onCounter).stream(broadcast: true);
+});
+```
+
+Consume it with `ref.watch()` — the widget rebuilds on every emission:
+
+```dart
+class CounterBadge extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncValue = ref.watch(counterProvider);
+    return Badge(
+      label: Text('${asyncValue.valueOrNull ?? 0}'),
+    );
+  }
+}
+```
+
+Pass `sticky: true` on the stream and use `lastValue` as `initialData` to start with the cached value before the first emission arrives:
+
+```dart
+final counterProvider = StreamProvider<int>((ref) {
+  return ref.event(onCounter).stream(sticky: true, broadcast: true);
+}, initialData: ref.event(onCounter).lastValue);
+```
+
 ### 9. Clear all listeners of an event
 
 Use `clearListeners()` to remove all listeners registered for a specific event without affecting other events or the bus itself.
