@@ -319,6 +319,34 @@ abstract class EventBusAction<T> {
   /// The last emitted value, or `null` if nothing has been emitted yet
   /// (or after [clearSticky]).
   T? get lastValue;
+
+  /// Subscribes to the **next** emission only, then automatically unsubscribes.
+  ///
+  /// Returns a [ListenerDisposable] that can be used to cancel the one-shot
+  /// subscription before it fires. Supports [sticky], [priority], [where], and
+  /// [onError] like any other listen method.
+  ///
+  /// ```dart
+  /// ref.event(onUserLogin).listenOnceManually((user) {
+  ///   navigateToHome(); // fires once, then auto-removes
+  /// });
+  /// ```
+  ListenerDisposable listenOnceManually(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  });
+
+  /// One-shot variant with [BusMetadata] access.
+  ListenerDisposable listenOnceManuallyWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  });
 }
 
 /// Shared implementation of [EventBusAction] methods common to both [Ref] and
@@ -467,6 +495,42 @@ mixin EventBusActionMixin<T> on EventBusAction<T> {
 
   @override
   T? get lastValue => eventBus.lastValue<T>(event.key);
+
+  @override
+  ListenerDisposable listenOnceManually(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.onOnce(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  ListenerDisposable listenOnceManuallyWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.onOnceWithMeta(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
 }
 
 /// [EventBusAction] implementation tied to a [Ref] for automatic lifecycle
@@ -668,6 +732,53 @@ class EventBusActionForRef<T> extends EventBusAction<T>
     ListenerWhere<T>? where,
   }) {
     eventBus.listenAsyncWithMeta(
+      ref,
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  /// Subscribes to the **next** emission only with **automatic disposal**.
+  ///
+  /// The listener fires once, then removes itself. If the provider is
+  /// invalidated before the event fires, [ref.onDispose] cleans it up.
+  ///
+  /// ```dart
+  /// ref.event(onUserLogin).listenOnce((user) {
+  ///   navigateToHome(); // fires once, auto-removes
+  /// });
+  /// ```
+  void listenOnce(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    eventBus.listenOnce(
+      ref,
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  /// One-shot with metadata and **automatic disposal**.
+  void listenOnceWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    eventBus.listenOnceWithMeta(
       ref,
       event.key,
       callback,

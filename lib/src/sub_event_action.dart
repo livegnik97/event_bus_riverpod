@@ -86,6 +86,26 @@ abstract class SubEventAction<T> {
   /// The last value that passed this subEvent's `where` predicate,
   /// or `null` if nothing has been emitted yet (or after [clearSticky]).
   T? get lastValue;
+
+  /// Subscribes to the **next** matching emission only, then auto-unsubscribes.
+  ///
+  /// Returns a [ListenerDisposable] to cancel before it fires.
+  ListenerDisposable listenOnceManually(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  });
+
+  /// One-shot variant with [BusMetadata] access.
+  ListenerDisposable listenOnceManuallyWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  });
 }
 
 /// Shared implementation of [SubEventAction] methods common to both [Ref] and
@@ -230,6 +250,46 @@ mixin SubEventActionMixin<T> on SubEventAction<T> {
         identifier.parentEvent.key,
         identifier.where,
       );
+
+  @override
+  ListenerDisposable listenOnceManually(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.onOnceSubEvent(
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  ListenerDisposable listenOnceManuallyWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.onOnceSubEventWithMeta(
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
 }
 
 /// [SubEventAction] implementation tied to a [Ref] for automatic lifecycle
@@ -317,6 +377,48 @@ class SubEventActionForRef<T> extends SubEventAction<T>
     ListenerWhere<T>? where,
   }) {
     eventBus.listenAsyncSubEventWithMeta(
+      ref,
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  /// Subscribes to the **next** matching emission only with **auto-disposal**.
+  void listenOnce(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    eventBus.listenOnceSubEvent(
+      ref,
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  /// One-shot with metadata and **automatic disposal**.
+  void listenOnceWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    eventBus.listenOnceSubEventWithMeta(
       ref,
       identifier.key,
       identifier.parentEvent.key,

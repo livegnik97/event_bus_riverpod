@@ -321,6 +321,150 @@ class EventBusCore {
     });
   }
 
+  void listenOnce<T>(
+    Ref ref,
+    int key,
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ListenerEntry? entry;
+    void wrapped(T value) {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+      callback(value);
+    }
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      where: where,
+    );
+    entry = e1;
+    _listeners.putIfAbsent(key, () => []).add(e1);
+    if (sticky) {
+      _tryDeliverSticky<T>(key, where, (v) => wrapped(v));
+    }
+    ref.onDispose(() {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+    });
+  }
+
+  void listenOnceWithMeta<T>(
+    Ref ref,
+    int key,
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ListenerEntry? entry;
+    void wrapped(T value, BusMetadata metadata) {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+      callback(value, metadata);
+    }
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      hasMetadata: true,
+      where: where,
+    );
+    entry = e1;
+    _listeners.putIfAbsent(key, () => []).add(e1);
+    if (sticky) {
+      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => wrapped(v, m));
+    }
+    ref.onDispose(() {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+    });
+  }
+
+  ListenerDisposable onOnce<T>(
+    int key,
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ListenerEntry? entry;
+    void wrapped(T value) {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+      callback(value);
+    }
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      where: where,
+    );
+    entry = e1;
+    _listeners.putIfAbsent(key, () => []).add(e1);
+    if (sticky) {
+      _tryDeliverSticky<T>(key, where, (v) => wrapped(v));
+    }
+    return ListenerDisposable(() {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+    });
+  }
+
+  ListenerDisposable onOnceWithMeta<T>(
+    int key,
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ListenerEntry? entry;
+    void wrapped(T value, BusMetadata metadata) {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+      callback(value, metadata);
+    }
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      hasMetadata: true,
+      where: where,
+    );
+    entry = e1;
+    _listeners.putIfAbsent(key, () => []).add(e1);
+    if (sticky) {
+      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => wrapped(v, m));
+    }
+    return ListenerDisposable(() {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+    });
+  }
+
   void _reportError(_ListenerEntry entry, Object error, StackTrace stack) {
     try {
       if (entry.onError != null) {
@@ -1018,6 +1162,162 @@ class EventBusCore {
     );
     _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
     return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
+  }
+
+  void listenOnceSubEvent<T>(
+    Ref ref,
+    int subKey,
+    int parentKey,
+    ListenerWhere<T> subEventWhere,
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+    _ListenerEntry? entry;
+    void wrapped(T value) {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+      callback(value);
+    }
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      where: where,
+    );
+    entry = e1;
+    _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
+    if (sticky) {
+      _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => wrapped(v));
+    }
+    ref.onDispose(() {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+    });
+  }
+
+  void listenOnceSubEventWithMeta<T>(
+    Ref ref,
+    int subKey,
+    int parentKey,
+    ListenerWhere<T> subEventWhere,
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+    _ListenerEntry? entry;
+    void wrapped(T value, BusMetadata metadata) {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+      callback(value, metadata);
+    }
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      hasMetadata: true,
+      where: where,
+    );
+    entry = e1;
+    _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
+    if (sticky) {
+      _tryDeliverSubEventStickyWithMeta<T>(subKey, parentKey, subEventWhere, where, (v, m) => wrapped(v, m));
+    }
+    ref.onDispose(() {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+    });
+  }
+
+  ListenerDisposable onOnceSubEvent<T>(
+    int subKey,
+    int parentKey,
+    ListenerWhere<T> subEventWhere,
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+    _ListenerEntry? entry;
+    void wrapped(T value) {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+      callback(value);
+    }
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      where: where,
+    );
+    entry = e1;
+    _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
+    if (sticky) {
+      _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => wrapped(v));
+    }
+    return ListenerDisposable(() {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+    });
+  }
+
+  ListenerDisposable onOnceSubEventWithMeta<T>(
+    int subKey,
+    int parentKey,
+    ListenerWhere<T> subEventWhere,
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+    _ListenerEntry? entry;
+    void wrapped(T value, BusMetadata metadata) {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+      callback(value, metadata);
+    }
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      hasMetadata: true,
+      where: where,
+    );
+    entry = e1;
+    _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
+    if (sticky) {
+      _tryDeliverSubEventStickyWithMeta<T>(subKey, parentKey, subEventWhere, where, (v, m) => wrapped(v, m));
+    }
+    return ListenerDisposable(() {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+    });
   }
 
   // ── SubEvent stream methods ──

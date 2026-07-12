@@ -56,6 +56,7 @@ Easy, simple, and fast.
 - [14. BusMetadata](#14-busmetadata-emission-metadata)
 - [15. Listener filter](#15-listener-filter-with-where)
 - [16. SubEvents](#16-subevents)
+- [17. One-shot listeners](#17-one-shot-listeners-listenonce)
 
 ## Installing
 
@@ -960,3 +961,74 @@ final profileProvider = Provider<void>((ref) {
 | `stream()` / `streamWithMeta()` | Expose event as `Stream<T>` or `Stream<(T, BusMetadata)>`; supports `broadcast: true` for multiple subscribers |
 | `streamSubEvent()` / `streamWithMetaSubEvent()` | Same for subEvents; supports `broadcast: true` |
 | `clearAllEvents()` | Wipe all listeners, sticky caches, middlewares, and subEvents |
+
+### 17. One-shot listeners (`listenOnce`)
+
+Use `listenOnce()` to react to the **next** emission only — the listener removes itself automatically after firing:
+
+```dart
+// Inside a provider (auto-dispose via ref.onDispose)
+ref.event(onUserLogin).listenOnce((user) {
+  navigateToHome(); // fires once, then auto-removes
+});
+```
+
+Inside a widget or anywhere without `Ref`, use `listenOnceManually()` — it returns a `ListenerDisposable` for manual cleanup:
+
+```dart
+class _MyWidgetState extends ConsumerState<MyWidget> {
+  ListenerDisposable? _disposable;
+
+  @override
+  void initState() {
+    super.initState();
+    _disposable = ref.event(EventBusConstants.onUserLogin).listenOnceManually((user) {
+      navigateToHome(); // fires once, then auto-removes
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposable?.dispose(); // optional: clean up if event never fires
+    super.dispose();
+  }
+}
+```
+
+One-shot listeners support all the same options as regular listeners — `sticky`, `where`, `priority`, `onError`, and `*WithMeta` variants:
+
+```dart
+// One-shot with sticky — fires with the cached value, removes itself
+ref.event(onCounter).listenOnce((v) {
+  print('First emission was $v');
+}, sticky: true);
+
+// One-shot with metadata
+ref.event(onUserLogin).listenOnceWithMeta((user, meta) {
+  print('Logged in at ${meta.timestamp}');
+});
+
+// One-shot with where filter
+ref.event(onData).listenOnce((data) {
+  process(data);
+}, where: (data, _) => data.isReady);
+
+// One-shot manual with error handling
+final d = ref.event(onApiCall).listenOnceManually((result) {
+  handleResult(result);
+}, onError: (e, st) => log('API failed: $e'));
+
+// Manual one-shot for subEvents
+ref.subEvent(evenSecureInt).listenOnce((v) {
+  print('First even number: $v');
+}, where: (v, _) => v > 10);
+```
+
+| Method | Context | Auto-dispose | Returns |
+|--------|---------|-------------|---------|
+| `listenOnce(cb)` | `Ref` | ✅ | `void` |
+| `listenOnceWithMeta(cb)` | `Ref` | ✅ | `void` |
+| `listenOnceManually(cb)` | Both | ❌ | `ListenerDisposable` |
+| `listenOnceManuallyWithMeta(cb)` | Both | ❌ | `ListenerDisposable` |
+
+All methods are also available on subEvents via `ref.subEvent(...)`.`listenOnce(...)` / `listenOnceManually(...)`.

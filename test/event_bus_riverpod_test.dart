@@ -1942,4 +1942,496 @@ void main() {
       container.dispose();
     });
   });
+
+  group('listenOnce — event', () {
+    test('listenOnce fires once and auto-removes', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenOnce((v) {
+          captured.add(v);
+        });
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+      action.emit(42);
+      expect(captured, [42]);
+
+      action.emit(99);
+      expect(captured, [42]);
+
+      container.dispose();
+    });
+
+    test('listenOnce with sticky receives cached value once', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(42);
+
+      final captured = <int>[];
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenOnce((v) {
+          captured.add(v);
+        }, sticky: true);
+      });
+      container.read(listenerProvider);
+      expect(captured, [42]);
+
+      action.emit(99);
+      expect(captured, [42]);
+
+      container.dispose();
+    });
+
+    test('listenOnce auto-dispose cleans up on provider invalidate', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenOnce((v) {
+          captured.add(v);
+        });
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+      container.invalidate(listenerProvider);
+
+      action.emit(42);
+      expect(captured, isEmpty);
+
+      container.dispose();
+    });
+
+    test('listenOnceWithMeta fires once with metadata', () {
+      final container = ProviderContainer();
+      BusMetadata? capturedMeta;
+      int? capturedValue;
+
+      final listenerProvider = Provider<void>((ref) {
+        ref.event(EventBusConstants.onSecureInt).listenOnceWithMeta((v, meta) {
+          capturedMeta = meta;
+          capturedValue = v;
+        });
+      });
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(listenerProvider);
+
+      action.emit(42, source: 'once-source');
+      expect(capturedValue, 42);
+      expect(capturedMeta!.source, 'once-source');
+
+      capturedValue = null;
+      action.emit(99);
+      expect(capturedValue, isNull);
+
+      container.dispose();
+    });
+
+    test('listenOnceManually fires once and auto-removes', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.listenOnceManually((v) {
+        captured.add(v);
+      });
+
+      action.emit(10);
+      expect(captured, [10]);
+
+      action.emit(20);
+      expect(captured, [10]);
+
+      container.dispose();
+    });
+
+    test('listenOnceManually with sticky receives cached value once', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(42);
+
+      final captured = <int>[];
+      action.listenOnceManually((v) {
+        captured.add(v);
+      }, sticky: true);
+
+      expect(captured, [42]);
+
+      action.emit(99);
+      expect(captured, [42]);
+
+      container.dispose();
+    });
+
+    test('listenOnceManually with where matches once then auto-removes', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.listenOnceManually((v) {
+        captured.add(v);
+      }, where: (v, _) => v > 0);
+
+      action.emit(-1);
+      expect(captured, isEmpty);
+
+      action.emit(5);
+      expect(captured, [5]);
+
+      action.emit(10);
+      expect(captured, [5]);
+
+      container.dispose();
+    });
+
+    test('listenOnceManually with onError catches error once', () {
+      final capturedErrors = <Object>[];
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.listenOnceManually((v) {
+        captured.add(v);
+        throw Exception('boom: $v');
+      }, onError: (e, st) => capturedErrors.add(e));
+
+      action.emit(1);
+      expect(captured, [1]);
+      expect(capturedErrors.length, 1);
+
+      action.emit(2);
+      expect(captured, [1]);
+
+      container.dispose();
+    });
+
+    test('listenOnceManually dispose prevents listener from firing', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final disposable = action.listenOnceManually((v) {
+        captured.add(v);
+      });
+
+      disposable.dispose();
+
+      action.emit(42);
+      expect(captured, isEmpty);
+
+      container.dispose();
+    });
+
+    test('listenOnceManuallyWithMeta fires once', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      BusMetadata? capturedMeta;
+      int? capturedValue;
+      action.listenOnceManuallyWithMeta((v, meta) {
+        capturedValue = v;
+        capturedMeta = meta;
+      });
+
+      action.emit(7, source: 'manual-once');
+      expect(capturedValue, 7);
+      expect(capturedMeta!.source, 'manual-once');
+
+      capturedValue = null;
+      action.emit(8);
+      expect(capturedValue, isNull);
+
+      container.dispose();
+    });
+  });
+
+  group('listenOnce — subEvent', () {
+    test('listenOnce fires only on first matching emission', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listenOnce((v) {
+          captured.add(v);
+        });
+      }));
+
+      action.emit(1);
+      expect(captured, isEmpty);
+
+      action.emit(2);
+      expect(captured, [2]);
+
+      action.emit(4);
+      expect(captured, [2]);
+
+      container.dispose();
+    });
+
+    test('listenOnce with sticky receives cached matching value once', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(1);
+      action.emit(2);
+
+      final captured = <int>[];
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listenOnce((v) {
+          captured.add(v);
+        }, sticky: true);
+      }));
+
+      expect(captured, [2]);
+
+      action.emit(4);
+      expect(captured, [2]);
+
+      container.dispose();
+    });
+
+    test('listenOnce with additional where filter', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listenOnce((v) {
+          captured.add(v);
+        }, where: (v, _) => v > 2);
+      }));
+
+      action.emit(2);
+      expect(captured, isEmpty);
+
+      action.emit(4);
+      expect(captured, [4]);
+
+      action.emit(6);
+      expect(captured, [4]);
+
+      container.dispose();
+    });
+
+    test('listenOnceManually fires once then auto-removes', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      subAction.listenOnceManually((v) {
+        captured.add(v);
+      });
+
+      action.emit(2);
+      expect(captured, [2]);
+
+      action.emit(4);
+      expect(captured, [2]);
+
+      container.dispose();
+    });
+
+    test('listenOnceManually with sticky receives cached value once', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(2);
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      final captured = <int>[];
+      subAction.listenOnceManually((v) {
+        captured.add(v);
+      }, sticky: true);
+
+      expect(captured, [2]);
+
+      action.emit(4);
+      expect(captured, [2]);
+
+      container.dispose();
+    });
+
+    test('listenOnceManually dispose prevents listener from firing', () {
+      final captured = <int>[];
+      final container = ProviderContainer();
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final disposable = subAction.listenOnceManually((v) {
+        captured.add(v);
+      });
+
+      disposable.dispose();
+
+      action.emit(2);
+      expect(captured, isEmpty);
+
+      container.dispose();
+    });
+
+    test('listenOnceManuallyWithMeta fires once', () {
+      final container = ProviderContainer();
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      BusMetadata? capturedMeta;
+      int? capturedValue;
+      subAction.listenOnceManuallyWithMeta((v, meta) {
+        capturedValue = v;
+        capturedMeta = meta;
+      });
+
+      action.emit(2, source: 'sub-once');
+      expect(capturedValue, 2);
+      expect(capturedMeta!.source, 'sub-once');
+
+      capturedValue = null;
+      action.emit(4);
+      expect(capturedValue, isNull);
+
+      container.dispose();
+    });
+
+    test('listenOnceWithMeta fires once', () {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      BusMetadata? capturedMeta;
+      int? capturedValue;
+      container.read(Provider<void>((ref) {
+        ref.subEvent(EventBusConstants.evenSecureInt).listenOnceWithMeta((v, meta) {
+          capturedValue = v;
+          capturedMeta = meta;
+        });
+      }));
+
+      action.emit(2, source: 'sub-once-meta');
+      expect(capturedValue, 2);
+      expect(capturedMeta!.source, 'sub-once-meta');
+
+      capturedValue = null;
+      action.emit(4);
+      expect(capturedValue, isNull);
+
+      container.dispose();
+    });
+  });
 }
