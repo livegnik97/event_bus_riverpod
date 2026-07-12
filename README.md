@@ -1158,3 +1158,42 @@ print(ref.subEvent(evens).history.length);     // 5  (only evens)
 | `clearSticky()` | — | Does **not** affect history. |
 | `clearAllEvents()` | — | Also clears all history. |
 | `clearListeners()` | — | Does **not** affect history. |
+
+---
+
+## 19. Logger interceptor
+
+Register a global callback that fires for **every event emission**, before middlewares are applied. Useful for logging, analytics, or debugging.
+
+```dart
+// Inside a provider — auto-disposed when the provider is invalidated
+ref.logEvents((entry) {
+  log('[${entry.eventName}] ${entry.value}');
+});
+```
+
+Inside a `ConsumerWidget` (manual disposal):
+
+```dart
+final disposable = ref.logEvents((entry) {
+  log('[${entry.eventName}] ${entry.value}');
+});
+// later: disposable.dispose();
+```
+
+### What gets logged
+
+Every call to `emit()` / `emitAsync()` fires the callback with a `LogEntry<Object?>` containing:
+- `eventName` — the name of the `EventBusIdentifier`
+- `value` — the raw value before middlewares
+- `metadata` — the `BusMetadata` (timestamp, source, extraData)
+
+The callback runs **before** middleware, so you always see the original value even if middleware transforms or cancels the event.
+
+### Error isolation
+
+If the callback throws, the error is silently caught — it never crashes the bus or affects listeners.
+
+### When used with SubEvents
+
+The logger fires for the parent event, **not** for each subEvent. SubEvents are derived views and do not emit independently.

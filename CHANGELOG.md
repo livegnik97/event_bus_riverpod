@@ -1,5 +1,6 @@
 ## 2.7.0
 
+* **Logger interceptor**: global `ref.logEvents()` callback fires for every event emission before middlewares — value, name, and metadata included. Error-isolated. Auto-dispose for `Ref`, manual for `WidgetRef`. Documented in section "19. Logger interceptor".
 * **Broadcast streams**: added `broadcast` parameter (`false` by default) to `stream()`, `streamWithMeta()`, `streamSubEvent()`, and `streamWithMetaSubEvent()`. When `true`, multiple subscribers can listen on the same stream without errors. Documented in section "8. Stream API — Broadcast mode".
 * **`clearAllEvents()`**: new extension method on both `Ref` and `WidgetRef` that wipes all listeners, subEvent listeners, middlewares, sticky caches, and subEvent registrations in one call. Useful for fully resetting state during user logout or app teardown. Documented in section "9. Clear all listeners — Clear all events".
 * **One-shot listeners (`listenOnce`)**: new `listenOnce()`/`listenOnceManually()` on events and subEvents — the listener fires on the next emission and immediately removes itself. Auto-dispose (`listenOnce`) for providers and manual (`listenOnceManually`) for widgets, both with sticky, where, metadata, priority, and error handling support.

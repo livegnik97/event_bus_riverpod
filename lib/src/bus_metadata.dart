@@ -12,3 +12,11 @@ class ValueWithMeta<T> {
 
   const ValueWithMeta(this.value, this.metadata);
 }
+
+class LogEntry<T> {
+  final String eventName;
+  final T value;
+  final BusMetadata metadata;
+
+  const LogEntry(this.eventName, this.value, this.metadata);
+}

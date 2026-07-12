@@ -1,6 +1,8 @@
+import 'package:event_bus_riverpod/src/bus_metadata.dart';
 import 'package:event_bus_riverpod/src/event_bus_action.dart';
 import 'package:event_bus_riverpod/src/event_bus_identifier.dart';
 import 'package:event_bus_riverpod/src/event_bus_provider.dart';
+import 'package:event_bus_riverpod/src/listener_disposable.dart';
 import 'package:event_bus_riverpod/src/sub_event_action.dart';
 import 'package:event_bus_riverpod/src/sub_event_identifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +31,26 @@ extension EventBusForRef on Ref {
   /// Clears all event bus state: listeners, sticky caches, middlewares,
   /// and subEvents for every event.
   void clearAllEvents() => read(eventBusProvider).clearAll();
+
+  /// Registers a global log callback that fires for every event emission
+  /// before middlewares are applied.
+  ///
+  /// The callback receives a [LogEntry] with the event name, value, and
+  /// metadata. The logger is automatically disposed via [ref.onDispose].
+  ///
+  /// ```dart
+  /// ref.logEvents((entry) {
+  ///   log('[${entry.eventName}] ${entry.value}');
+  /// });
+  /// ```
+  ListenerDisposable logEvents(
+    void Function(LogEntry<Object?> entry) callback,
+  ) {
+    final bus = read(eventBusProvider);
+    bus.setLogCallback(callback);
+    onDispose(() => bus.setLogCallback(null));
+    return ListenerDisposable(() => bus.setLogCallback(null));
+  }
 }
 
 /// Extends [WidgetRef] with the [event] method to interact with the event bus.
@@ -60,4 +82,25 @@ extension EventBusForWidgetRef on WidgetRef {
   /// Clears all event bus state: listeners, sticky caches, middlewares,
   /// and subEvents for every event.
   void clearAllEvents() => read(eventBusProvider).clearAll();
+
+  /// Registers a global log callback that fires for every event emission
+  /// before middlewares are applied.
+  ///
+  /// The callback receives a [LogEntry] with the event name, value, and
+  /// metadata. Returns a [ListenerDisposable] to unregister the logger.
+  ///
+  /// ```dart
+  /// final disposable = ref.logEvents((entry) {
+  ///   log('[${entry.eventName}] ${entry.value}');
+  /// });
+  /// // later:
+  /// disposable.dispose();
+  /// ```
+  ListenerDisposable logEvents(
+    void Function(LogEntry<Object?> entry) callback,
+  ) {
+    final bus = read(eventBusProvider);
+    bus.setLogCallback(callback);
+    return ListenerDisposable(() => bus.setLogCallback(null));
+  }
 }

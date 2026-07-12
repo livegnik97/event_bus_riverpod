@@ -2631,4 +2631,130 @@ void main() {
       container.dispose();
     });
   });
+
+  group('logger', () {
+    test('logEvents captures event name, value and metadata', () {
+      final captured = <LogEntry<Object?>>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      final listenerProvider = Provider<void>((ref) => globalRef = ref);
+      container.read(listenerProvider);
+
+      globalRef.logEvents((entry) => captured.add(entry));
+      globalRef.event(EventBusConstants.onSecureInt).emit(42);
+
+      expect(captured, hasLength(1));
+      expect(captured[0].eventName, 'onSecureInt');
+      expect(captured[0].value, 42);
+      expect(captured[0].metadata.timestamp, isA<DateTime>());
+
+      container.dispose();
+    });
+
+    test('logEvents fires before middleware', () async {
+      final logCaptured = <LogEntry<Object?>>[];
+      final listenerCaptured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      final listenerProvider = Provider<void>((ref) => globalRef = ref);
+      container.read(listenerProvider);
+
+      globalRef.logEvents((entry) => logCaptured.add(entry));
+      globalRef.event(EventBusConstants.onSecureInt).applyMiddleware(
+        (value, next) => next(value * 2),
+      );
+      globalRef.event(EventBusConstants.onSecureInt).listen((v) {
+        listenerCaptured.add(v);
+      });
+      globalRef.event(EventBusConstants.onSecureInt).emit(5);
+
+      // Log should see raw value (5), listener sees post-middleware (10)
+      expect(logCaptured, hasLength(1));
+      expect(logCaptured[0].value, 5);
+      expect(listenerCaptured, [10]);
+
+      container.dispose();
+    });
+
+    test('logEvents fires on every emit', () {
+      final captured = <LogEntry<Object?>>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      final listenerProvider = Provider<void>((ref) => globalRef = ref);
+      container.read(listenerProvider);
+
+      globalRef.logEvents((entry) => captured.add(entry));
+      globalRef.event(EventBusConstants.onSecureInt).emit(1);
+      globalRef.event(EventBusConstants.onSecureInt).emit(2);
+      globalRef.event(EventBusConstants.onSecureInt).emit(3);
+
+      expect(captured, hasLength(3));
+      expect(captured[0].value, 1);
+      expect(captured[1].value, 2);
+      expect(captured[2].value, 3);
+
+      container.dispose();
+    });
+
+    test('logEvents via WidgetRef style (direct setLogCallback)', () {
+      final captured = <LogEntry<Object?>>[];
+      final container = ProviderContainer();
+      final bus = container.read(eventBusProvider);
+
+      bus.registerEventName(EventBusConstants.onSecureInt.key, 'onSecureInt');
+      bus.setLogCallback((entry) => captured.add(entry));
+      bus.emit(EventBusConstants.onSecureInt.key, 99);
+
+      expect(captured, hasLength(1));
+      expect(captured[0].value, 99);
+      expect(captured[0].eventName, 'onSecureInt');
+
+      container.dispose();
+    });
+
+    test('logEvents disposal stops logging', () {
+      final captured = <LogEntry<Object?>>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      final listenerProvider = Provider<void>((ref) => globalRef = ref);
+      container.read(listenerProvider);
+
+      final disposable =
+          globalRef.logEvents((entry) => captured.add(entry));
+      globalRef.event(EventBusConstants.onSecureInt).emit(1);
+      expect(captured, hasLength(1));
+
+      disposable.dispose();
+      globalRef.event(EventBusConstants.onSecureInt).emit(2);
+      expect(captured, hasLength(1)); // no new log
+
+      container.dispose();
+    });
+
+    test('logEvents catches errors in callback gracefully', () {
+      final listenerCaptured = <int>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      final listenerProvider = Provider<void>((ref) => globalRef = ref);
+      container.read(listenerProvider);
+
+      container.read(eventBusProvider).setLogCallback((LogEntry<Object?> entry) {
+        throw Exception('log error');
+      });
+      globalRef.event(EventBusConstants.onSecureInt).listen((v) {
+        listenerCaptured.add(v);
+      });
+      globalRef.event(EventBusConstants.onSecureInt).emit(42);
+
+      // Listener still receives the value despite log callback throwing
+      expect(listenerCaptured, [42]);
+
+      container.dispose();
+    });
+  });
 }

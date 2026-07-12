@@ -480,12 +480,14 @@ mixin EventBusActionMixin<T> on EventBusAction<T> {
   @override
   void emit(T value, {String? source, dynamic extraData}) {
     eventBus.setHistorySize(event.key, event.historySize);
+    eventBus.registerEventName(event.key, event.eventName);
     eventBus.emit(event.key, value, source: source, extraData: extraData);
   }
 
   @override
   Future<void> emitAsync(T value, {String? source, dynamic extraData}) {
     eventBus.setHistorySize(event.key, event.historySize);
+    eventBus.registerEventName(event.key, event.eventName);
     return eventBus.emitAsync(event.key, value, source: source, extraData: extraData);
   }
 
