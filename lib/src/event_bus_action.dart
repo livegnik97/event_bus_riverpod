@@ -303,12 +303,160 @@ abstract class EventBusAction<T> {
   T? get lastValue;
 }
 
+/// Shared implementation of [EventBusAction] methods common to both [Ref] and
+/// [WidgetRef].
+mixin EventBusActionMixin<T> on EventBusAction<T> {
+  EventBusCore get eventBus;
+
+  @override
+  ListenerDisposable listenManually(
+    ListenerCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.on(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  ListenerDisposable listenManuallyWithMeta(
+    ListenerWithMetaCallback<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.onWithMeta(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  ListenerDisposable listenManuallyAsync(
+    Future<void> Function(T value) callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.onAsync(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  ListenerDisposable listenManuallyAsyncWithMeta(
+    ListenerWithMetaCallbackAsync<T> callback, {
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.onAsyncWithMeta(
+      event.key,
+      callback,
+      onError: onError,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  Stream<T> stream({
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.stream(
+      event.key,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  Stream<(T, BusMetadata)> streamWithMeta({
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.streamWithMeta(
+      event.key,
+      sticky: sticky,
+      priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  void emit(T value, {String? source, dynamic extraData}) {
+    eventBus.emit(event.key, value, source: source, extraData: extraData);
+  }
+
+  @override
+  Future<void> emitAsync(T value, {String? source, dynamic extraData}) {
+    return eventBus.emitAsync(event.key, value, source: source, extraData: extraData);
+  }
+
+  @override
+  void clearListeners() {
+    eventBus.clearEvent(event.key);
+  }
+
+  @override
+  void clearSticky() {
+    eventBus.clearSticky(event.key);
+  }
+
+  @override
+  ListenerDisposable applyMiddleware(EventMiddleware<T> middleware) {
+    return eventBus.applyMiddleware(event.key, middleware);
+  }
+
+  @override
+  void clearMiddlewares() {
+    eventBus.clearMiddlewares(event.key);
+  }
+
+  @override
+  bool get hasClients {
+    return eventBus.hasClients(event.key);
+  }
+
+  @override
+  T? get lastValue => eventBus.lastValue<T>(event.key);
+}
+
 /// [EventBusAction] implementation tied to a [Ref] for automatic lifecycle
 /// management via [listen].
-class EventBusActionForRef<T> extends EventBusAction<T> {
+class EventBusActionForRef<T> extends EventBusAction<T>
+    with EventBusActionMixin<T> {
   final Ref ref;
 
   EventBusActionForRef({required super.event, required this.ref});
+
+  @override
+  EventBusCore get eventBus => ref.read(eventBusProvider);
 
   /// Subscribes to this event with **automatic disposal** tied to the [Ref].
   ///
@@ -368,8 +516,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    final bus = ref.read(eventBusProvider);
-    bus.listen(
+    eventBus.listen(
       ref,
       event.key,
       callback,
@@ -397,8 +544,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    final bus = ref.read(eventBusProvider);
-    bus.listenWithMeta(
+    eventBus.listenWithMeta(
       ref,
       event.key,
       callback,
@@ -470,8 +616,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    final bus = ref.read(eventBusProvider);
-    bus.listenAsync(
+    eventBus.listenAsync(
       ref,
       event.key,
       callback,
@@ -500,8 +645,7 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    final bus = ref.read(eventBusProvider);
-    bus.listenAsyncWithMeta(
+    eventBus.listenAsyncWithMeta(
       ref,
       event.key,
       callback,
@@ -511,312 +655,18 @@ class EventBusActionForRef<T> extends EventBusAction<T> {
       where: where,
     );
   }
-
-  @override
-  ListenerDisposable listenManually(
-    ListenerCallback<T> callback, {
-    void Function(Object, StackTrace)? onError,
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.on(
-      event.key,
-      callback,
-      onError: onError,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  ListenerDisposable listenManuallyWithMeta(
-    ListenerWithMetaCallback<T> callback, {
-    void Function(Object, StackTrace)? onError,
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.onWithMeta(
-      event.key,
-      callback,
-      onError: onError,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  ListenerDisposable listenManuallyAsync(
-    Future<void> Function(T value) callback, {
-    void Function(Object, StackTrace)? onError,
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.onAsync(
-      event.key,
-      callback,
-      onError: onError,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  ListenerDisposable listenManuallyAsyncWithMeta(
-    ListenerWithMetaCallbackAsync<T> callback, {
-    void Function(Object, StackTrace)? onError,
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.onAsyncWithMeta(
-      event.key,
-      callback,
-      onError: onError,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  Stream<T> stream({
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.stream(
-      event.key,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  Stream<(T, BusMetadata)> streamWithMeta({
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.streamWithMeta(
-      event.key,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  void emit(T value, {String? source, dynamic extraData}) {
-    ref
-        .read(eventBusProvider)
-        .emit(event.key, value, source: source, extraData: extraData);
-  }
-
-  @override
-  Future<void> emitAsync(T value, {String? source, dynamic extraData}) {
-    return ref
-        .read(eventBusProvider)
-        .emitAsync(event.key, value, source: source, extraData: extraData);
-  }
-
-  @override
-  void clearListeners() {
-    ref.read(eventBusProvider).clearEvent(event.key);
-  }
-
-  @override
-  void clearSticky() {
-    ref.read(eventBusProvider).clearSticky(event.key);
-  }
-
-  @override
-  ListenerDisposable applyMiddleware(EventMiddleware<T> middleware) {
-    final bus = ref.read(eventBusProvider);
-    return bus.applyMiddleware(event.key, middleware);
-  }
-
-  @override
-  void clearMiddlewares() {
-    ref.read(eventBusProvider).clearMiddlewares(event.key);
-  }
-
-  @override
-  bool get hasClients {
-    return ref.read(eventBusProvider).hasClients(event.key);
-  }
-
-  @override
-  T? get lastValue => ref.read(eventBusProvider).lastValue<T>(event.key);
 }
 
 /// [EventBusAction] implementation tied to a [WidgetRef], used from widgets.
 ///
 /// Does **not** provide a [listen] method — use [listenManually] instead,
 /// since widget lifecycles are managed differently.
-class EventBusActionForWidgetRef<T> extends EventBusAction<T> {
+class EventBusActionForWidgetRef<T> extends EventBusAction<T>
+    with EventBusActionMixin<T> {
   final WidgetRef ref;
 
   EventBusActionForWidgetRef({required super.event, required this.ref});
 
   @override
-  ListenerDisposable listenManually(
-    ListenerCallback<T> callback, {
-    void Function(Object, StackTrace)? onError,
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.on(
-      event.key,
-      callback,
-      onError: onError,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  ListenerDisposable listenManuallyWithMeta(
-    ListenerWithMetaCallback<T> callback, {
-    void Function(Object, StackTrace)? onError,
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.onWithMeta(
-      event.key,
-      callback,
-      onError: onError,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  ListenerDisposable listenManuallyAsync(
-    Future<void> Function(T value) callback, {
-    void Function(Object, StackTrace)? onError,
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.onAsync(
-      event.key,
-      callback,
-      onError: onError,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  ListenerDisposable listenManuallyAsyncWithMeta(
-    ListenerWithMetaCallbackAsync<T> callback, {
-    void Function(Object, StackTrace)? onError,
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.onAsyncWithMeta(
-      event.key,
-      callback,
-      onError: onError,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  Stream<T> stream({
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.stream(
-      event.key,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  Stream<(T, BusMetadata)> streamWithMeta({
-    bool sticky = false,
-    int priority = 0,
-    ListenerWhere<T>? where,
-  }) {
-    final bus = ref.read(eventBusProvider);
-    return bus.streamWithMeta(
-      event.key,
-      sticky: sticky,
-      priority: priority,
-      where: where,
-    );
-  }
-
-  @override
-  void emit(T value, {String? source, dynamic extraData}) {
-    ref
-        .read(eventBusProvider)
-        .emit(event.key, value, source: source, extraData: extraData);
-  }
-
-  @override
-  Future<void> emitAsync(T value, {String? source, dynamic extraData}) {
-    return ref
-        .read(eventBusProvider)
-        .emitAsync(event.key, value, source: source, extraData: extraData);
-  }
-
-  @override
-  void clearListeners() {
-    ref.read(eventBusProvider).clearEvent(event.key);
-  }
-
-  @override
-  void clearSticky() {
-    ref.read(eventBusProvider).clearSticky(event.key);
-  }
-
-  @override
-  ListenerDisposable applyMiddleware(EventMiddleware<T> middleware) {
-    final bus = ref.read(eventBusProvider);
-    return bus.applyMiddleware(event.key, middleware);
-  }
-
-  @override
-  void clearMiddlewares() {
-    ref.read(eventBusProvider).clearMiddlewares(event.key);
-  }
-
-  @override
-  bool get hasClients {
-    return ref.read(eventBusProvider).hasClients(event.key);
-  }
-
-  @override
-  T? get lastValue => ref.read(eventBusProvider).lastValue<T>(event.key);
+  EventBusCore get eventBus => ref.read(eventBusProvider);
 }

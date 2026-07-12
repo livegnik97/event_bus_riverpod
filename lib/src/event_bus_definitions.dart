@@ -13,7 +13,7 @@ typedef ListenerWithMetaCallbackAsync<T> =
 
 typedef ListenerWhere<T> = bool Function(T value, BusMetadata metadata);
 
-class _EventBus {
+class EventBusCore {
   final Map<int, List<_ListenerEntry>> _listeners = {};
   final Map<int, _EventCacheEntry> _lastValues = {};
   final Map<int, List<_MiddlewareEntry>> _middlewares = {};
