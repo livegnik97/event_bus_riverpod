@@ -74,9 +74,9 @@ Easy, simple, and fast.
     - [17. One-shot listeners (`listenOnce`)](#17-one-shot-listeners-listenonce)
     - [18. Event history (last N values)](#18-event-history-last-n-values)
     - [19. Logger interceptor](#19-logger-interceptor)
-    - [What gets logged](#what-gets-logged)
-    - [Error isolation](#error-isolation)
-    - [When used with SubEvents](#when-used-with-subevents)
+      - [What gets logged](#what-gets-logged)
+      - [Error isolation](#error-isolation)
+      - [When used with SubEvents](#when-used-with-subevents)
 
 ## Installing
 
@@ -1200,7 +1200,7 @@ final disposable = ref.logEvents((entry) {
 // later: disposable.dispose();
 ```
 
-### What gets logged
+#### What gets logged
 
 Every call to `emit()` / `emitAsync()` fires the callback with a `LogEntry<Object?>` containing:
 - `eventName` — the name of the `EventBusIdentifier`
@@ -1209,10 +1209,10 @@ Every call to `emit()` / `emitAsync()` fires the callback with a `LogEntry<Objec
 
 The callback runs **before** middleware, so you always see the original value even if middleware transforms or cancels the event.
 
-### Error isolation
+#### Error isolation
 
 If the callback throws, the error is silently caught — it never crashes the bus or affects listeners.
 
-### When used with SubEvents
+#### When used with SubEvents
 
 The logger fires for the parent event, **not** for each subEvent. SubEvents are derived views and do not emit independently.
