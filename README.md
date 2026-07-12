@@ -40,25 +40,43 @@ Easy, simple, and fast.
 
 ## Table of Contents
 
-- [1. Define an event identifier](#1-define-an-event-identifier)
-- [2. Listen and emit inside a provider](#2-listen-and-emit-inside-a-provider)
-- [3. Listen and emit inside a widget](#3-listen-and-emit-inside-a-widget-with-widgetref)
-- [4. Manual subscription](#4-manual-subscription-with-listenmanually)
-- [5. Check active listeners](#5-check-if-an-event-has-active-listeners)
-- [6. Null-safe events](#6-null-safe-events)
-- [7. Error handling](#7-error-handling-with-onerror)
-- [8. Stream API](#8-stream-api)
-- [9. Clear listeners and events](#9-clear-all-listeners-of-an-event)
-- [10. Async listeners](#10-async-listeners)
-- [11. Sticky events and last value](#11-sticky-events-last-value-cache)
-- [12. Middleware pipeline](#12-middleware-pipeline)
-- [13. Execution priority](#13-execution-priority)
-- [14. BusMetadata](#14-busmetadata-emission-metadata)
-- [15. Listener filter](#15-listener-filter-with-where)
-- [16. SubEvents](#16-subevents)
-- [17. One-shot listeners](#17-one-shot-listeners-listenonce)
-- [18. Event history (last N values)](#18-event-history-last-n-values)
-- [19. Logger interceptor](#19-logger-interceptor)
+- [event\_bus\_riverpod](#event_bus_riverpod)
+  - [What is the best use for this package?](#what-is-the-best-use-for-this-package)
+  - [Features](#features)
+  - [Table of Contents](#table-of-contents)
+  - [Installing](#installing)
+  - [Usage](#usage)
+    - [1. Define an event identifier](#1-define-an-event-identifier)
+    - [2. Listen and emit inside a provider](#2-listen-and-emit-inside-a-provider)
+    - [3. Listen and emit inside a widget with `WidgetRef`](#3-listen-and-emit-inside-a-widget-with-widgetref)
+    - [4. Manual subscription with `listenManually()`](#4-manual-subscription-with-listenmanually)
+    - [5. Check if an event has active listeners](#5-check-if-an-event-has-active-listeners)
+    - [6. Null-safe events](#6-null-safe-events)
+    - [7. Error handling with `onError`](#7-error-handling-with-onerror)
+    - [8. Stream API](#8-stream-api)
+      - [Broadcast mode](#broadcast-mode)
+      - [Recipe: event as a reactive Riverpod provider](#recipe-event-as-a-reactive-riverpod-provider)
+    - [9. Clear all listeners of an event](#9-clear-all-listeners-of-an-event)
+      - [Clear all events](#clear-all-events)
+    - [10. Async listeners](#10-async-listeners)
+    - [11. Sticky events (last value cache)](#11-sticky-events-last-value-cache)
+      - [Last value (unsibscribed access)](#last-value-unsibscribed-access)
+    - [12. Middleware pipeline](#12-middleware-pipeline)
+    - [13. Execution priority](#13-execution-priority)
+    - [14. BusMetadata (emission metadata)](#14-busmetadata-emission-metadata)
+      - [Emitting with metadata](#emitting-with-metadata)
+      - [Listening with metadata](#listening-with-metadata)
+      - [Practical scenario: audit trail](#practical-scenario-audit-trail)
+      - [Sticky + metadata](#sticky--metadata)
+      - [Metadata API reference](#metadata-api-reference)
+    - [15. Listener filter with `where`](#15-listener-filter-with-where)
+    - [16. SubEvents](#16-subevents)
+    - [17. One-shot listeners (`listenOnce`)](#17-one-shot-listeners-listenonce)
+    - [18. Event history (last N values)](#18-event-history-last-n-values)
+    - [19. Logger interceptor](#19-logger-interceptor)
+    - [What gets logged](#what-gets-logged)
+    - [Error isolation](#error-isolation)
+    - [When used with SubEvents](#when-used-with-subevents)
 
 ## Installing
 
@@ -66,7 +84,7 @@ Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^2.7.0
+  event_bus_riverpod: ^2.9.2
   flutter_riverpod: ^3.0.0
 ```
 

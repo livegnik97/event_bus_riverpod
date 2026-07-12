@@ -1,4 +1,4 @@
-## 2.7.0
+## 2.9.2
 
 * **Logger interceptor**: global `ref.logEvents()` callback fires for every event emission before middlewares — value, name, and metadata included. Error-isolated. Auto-dispose for `Ref`, manual for `WidgetRef`. Documented in section "19. Logger interceptor".
 * **Broadcast streams**: added `broadcast` parameter (`false` by default) to `stream()`, `streamWithMeta()`, `streamSubEvent()`, and `streamWithMetaSubEvent()`. When `true`, multiple subscribers can listen on the same stream without errors. Documented in section "8. Stream API — Broadcast mode".

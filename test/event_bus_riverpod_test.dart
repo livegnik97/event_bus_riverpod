@@ -2699,6 +2699,23 @@ void main() {
       container.dispose();
     });
 
+    test('logEvents fires with emitAsync', () async {
+      final captured = <LogEntry<Object?>>[];
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      final listenerProvider = Provider<void>((ref) => globalRef = ref);
+      container.read(listenerProvider);
+
+      globalRef.logEvents((entry) => captured.add(entry));
+      await globalRef.event(EventBusConstants.onSecureInt).emitAsync(42);
+
+      expect(captured, hasLength(1));
+      expect(captured[0].value, 42);
+
+      container.dispose();
+    });
+
     test('logEvents via WidgetRef style (direct setLogCallback)', () {
       final captured = <LogEntry<Object?>>[];
       final container = ProviderContainer();

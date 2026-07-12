@@ -723,6 +723,7 @@ class EventBusCore {
     T value,
     BusMetadata metadata,
   ) async {
+    _tryLog(key, value, metadata);
     final chain = _middlewares[key];
     if (chain == null || chain.isEmpty) {
       await _notifyAsync(key, value, metadata);
@@ -927,6 +928,7 @@ class EventBusCore {
     _subEventBackfilledNoMatch.clear();
     _histories.clear();
     _historySizes.clear();
+    _eventNames.clear();
   }
 
   // ── SubEvent listener methods ──
