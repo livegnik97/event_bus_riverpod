@@ -352,6 +352,7 @@ class EventBusCore {
       }
       callback(value);
     }
+
     final e1 = _ListenerEntry(
       wrapped,
       onError: onError,
@@ -388,6 +389,7 @@ class EventBusCore {
       }
       callback(value, metadata);
     }
+
     final e1 = _ListenerEntry(
       wrapped,
       onError: onError,
@@ -424,6 +426,7 @@ class EventBusCore {
       }
       callback(value);
     }
+
     final e1 = _ListenerEntry(
       wrapped,
       onError: onError,
@@ -459,6 +462,7 @@ class EventBusCore {
       }
       callback(value, metadata);
     }
+
     final e1 = _ListenerEntry(
       wrapped,
       onError: onError,
@@ -598,8 +602,9 @@ class EventBusCore {
       if (subWhere == null) continue;
 
       try {
-        if (!(subWhere as bool Function(T, BusMetadata))(value, metadata))
+        if (!(subWhere as bool Function(T, BusMetadata))(value, metadata)) {
           continue;
+        }
       } catch (_) {
         continue;
       }
@@ -636,8 +641,9 @@ class EventBusCore {
       if (subWhere == null) continue;
 
       try {
-        if (!(subWhere as bool Function(T, BusMetadata))(value, metadata))
+        if (!(subWhere as bool Function(T, BusMetadata))(value, metadata)) {
           continue;
+        }
       } catch (_) {
         continue;
       }
@@ -913,7 +919,11 @@ class EventBusCore {
     _logCallback = callback;
   }
 
-  void ensureSubEventRegistered(int subKey, int parentKey, dynamic subEventWhere) {
+  void ensureSubEventRegistered(
+    int subKey,
+    int parentKey,
+    dynamic subEventWhere,
+  ) {
     _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
   }
 
@@ -1247,6 +1257,7 @@ class EventBusCore {
       }
       callback(value);
     }
+
     final e1 = _ListenerEntry(
       wrapped,
       onError: onError,
@@ -1256,7 +1267,13 @@ class EventBusCore {
     entry = e1;
     _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
     if (sticky) {
-      _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => wrapped(v));
+      _tryDeliverSubEventSticky<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v) => wrapped(v),
+      );
     }
     ref.onDispose(() {
       if (entry != null) {
@@ -1286,6 +1303,7 @@ class EventBusCore {
       }
       callback(value, metadata);
     }
+
     final e1 = _ListenerEntry(
       wrapped,
       onError: onError,
@@ -1296,7 +1314,13 @@ class EventBusCore {
     entry = e1;
     _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
     if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(subKey, parentKey, subEventWhere, where, (v, m) => wrapped(v, m));
+      _tryDeliverSubEventStickyWithMeta<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v, m) => wrapped(v, m),
+      );
     }
     ref.onDispose(() {
       if (entry != null) {
@@ -1325,6 +1349,7 @@ class EventBusCore {
       }
       callback(value);
     }
+
     final e1 = _ListenerEntry(
       wrapped,
       onError: onError,
@@ -1334,7 +1359,13 @@ class EventBusCore {
     entry = e1;
     _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
     if (sticky) {
-      _tryDeliverSubEventSticky<T>(subKey, parentKey, subEventWhere, where, (v) => wrapped(v));
+      _tryDeliverSubEventSticky<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v) => wrapped(v),
+      );
     }
     return ListenerDisposable(() {
       if (entry != null) {
@@ -1363,6 +1394,7 @@ class EventBusCore {
       }
       callback(value, metadata);
     }
+
     final e1 = _ListenerEntry(
       wrapped,
       onError: onError,
@@ -1373,7 +1405,13 @@ class EventBusCore {
     entry = e1;
     _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
     if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(subKey, parentKey, subEventWhere, where, (v, m) => wrapped(v, m));
+      _tryDeliverSubEventStickyWithMeta<T>(
+        subKey,
+        parentKey,
+        subEventWhere,
+        where,
+        (v, m) => wrapped(v, m),
+      );
     }
     return ListenerDisposable(() {
       if (entry != null) {

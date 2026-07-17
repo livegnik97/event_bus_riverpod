@@ -1,0 +1,21 @@
+name: event_bus_riverpod_example
+description: Example usage of event_bus_riverpod.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.0.0
+  event_bus_riverpod:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

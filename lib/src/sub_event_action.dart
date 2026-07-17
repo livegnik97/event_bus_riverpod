@@ -250,15 +250,19 @@ mixin SubEventActionMixin<T> on SubEventAction<T> {
 
   @override
   T? get lastValue => eventBus.subEventCached<T>(
-        identifier.key,
-        identifier.parentEvent.key,
-        identifier.where,
-      );
+    identifier.key,
+    identifier.parentEvent.key,
+    identifier.where,
+  );
 
   @override
   List<ValueWithMeta<T>> get history {
     eventBus.setHistorySize(identifier.key, identifier.historySize);
-    eventBus.ensureSubEventRegistered(identifier.key, identifier.parentEvent.key, identifier.where);
+    eventBus.ensureSubEventRegistered(
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+    );
     return eventBus.history<T>(identifier.key);
   }
 

@@ -1,3 +1,9 @@
+## 2.9.3
+
+* **Shortened package description** to stay within pub.dev's 180-character limit.
+* **Added example directory** with a working Flutter app demonstrating event bus usage.
+* **Fixed lint warnings** (`curly_braces_in_flow_control_structures`) in `_fireSubEvents` and `_fireSubEventsAsync`.
+
 ## 2.9.2
 
 * **Logger interceptor**: global `ref.logEvents()` callback fires for every event emission before middlewares — value, name, and metadata included. Error-isolated. Auto-dispose for `Ref`, manual for `WidgetRef`. Documented in section "19. Logger interceptor".

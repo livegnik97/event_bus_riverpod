@@ -1,7 +1,8 @@
 class EventBusIdentifier<T> {
   final String eventName;
   final int historySize;
-  EventBusIdentifier(this.eventName, {this.historySize = 0}) : assert(historySize >= 0);
+  EventBusIdentifier(this.eventName, {this.historySize = 0})
+    : assert(historySize >= 0);
   Type get type => T;
 
   int? _key;
