@@ -1,10 +1,9 @@
 ## 3.0.0
 
-* **Global API (`EventBusGlobal`)**: use the event bus from anywhere — plain Dart classes, services, or any code without Riverpod — via `EventBusGlobal.event()` / `EventBusGlobal.subEvent()`. The bus is backed by `EventBusSingleton` and is shared with the provider-based API (`ref.event`), so emits and listeners work across both worlds seamlessly.
-* **`EventBusActionForGlobal<T>` / `SubEventActionForGlobal<T>`**: new action classes that work without `Ref` or `WidgetRef`. They implement the same `EventBusAction<T>` / `SubEventAction<T>` interfaces and support all manual methods: `listenManually()`, `listenManuallyWithMeta()`, `listenManuallyAsync()`, `listenManuallyAsyncWithMeta()`, `emit()`, `emitAsync()`, `stream()`, `streamWithMeta()`, `hasClients`, `lastValue`, `history`, `clearListeners()`, `clearSticky()`, `applyMiddleware()`, `clearMiddlewares()`, `listenOnceManually()`, `listenOnceManuallyWithMeta()`.
-* **`EventBusIdentifierBase<T>`**: new abstract base class that both `EventBusIdentifier<T>` and `SubEventIdentifier<T>` extend. Exposes `eventName`, `type`, `key`, and `historySize` uniformly. Enables APIs like `EventBusBuilder` that accept either type polymorphically.
-* **`EventBusBuilder<T>`**: new `ConsumerStatefulWidget` that rebuilds whenever an event is emitted. Accepts both `EventBusIdentifier` and `SubEventIdentifier` via the common base type. Supports `sticky`, `initialData`, `where`, and `priority`. Perfect for reactive widgets that update in response to events without managing a subscription lifecycle.
-* **Breaking change**: `SubEventIdentifier.subEventName` renamed to `eventName` for consistency with the base class.
+* **16 — SubEvents**: `SubEventIdentifier.subEventName` renamed to `eventName` for consistency with the new `EventBusIdentifierBase<T>` they both extend. **Breaking change**.
+* **20 — Global API**: use the event bus from anywhere without Riverpod — plain Dart classes, services, or repositories. `EventBusGlobal.event()` and `EventBusGlobal.subEvent()` work with the same singleton bus as `ref.event()`, so emits and listeners are shared across both worlds.
+* **21 — EventBusBuilder**: new widget that rebuilds whenever an event or subEvent fires. Accepts both identifier types polymorphically. No subscription management needed — handles `initState`, `dispose`, and re-subscription on changes automatically.
+* **22 — `waitFor()`**: await the next emission as a `Future<T>` — ideal for navigation after login, waiting for a specific status, or any one-shot coordination. Available on events, subEvents, and the global API. Built-in 30-second timeout prevents hanging futures; supports `where` filter for conditional matching.
 
 ## 2.9.3
 

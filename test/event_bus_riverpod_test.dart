@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2432,6 +2434,185 @@ void main() {
       capturedValue = null;
       action.emit(4);
       expect(capturedValue, isNull);
+
+      container.dispose();
+    });
+  });
+
+  group('waitFor — event', () {
+    test('resolves with the next emitted value', () async {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final future = action.waitFor();
+
+      action.emit(42);
+
+      await expectLater(future, completion(42));
+
+      container.dispose();
+    });
+
+    test('does not resolve with previously emitted values', () async {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      action.emit(10);
+
+      final future = action.waitFor();
+
+      action.emit(20);
+
+      await expectLater(future, completion(20));
+
+      container.dispose();
+    });
+
+    test('with where — only matching emission resolves', () async {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final future = action.waitFor(where: (v, _) => v > 0);
+
+      action.emit(-1);
+      action.emit(0);
+      action.emit(5);
+
+      await expectLater(future, completion(5));
+
+      container.dispose();
+    });
+
+    test('with timeout — TimeoutException if event never fires', () async {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final future = action.waitFor(timeout: Duration(milliseconds: 50));
+
+      await expectLater(
+        future,
+        throwsA(isA<TimeoutException>()),
+      );
+
+      container.dispose();
+    });
+
+    test('with timeout — resolves normally if event fires before timeout',
+        () async {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final future = action.waitFor(timeout: Duration(seconds: 10));
+
+      action.emit(99);
+
+      await expectLater(future, completion(99));
+
+      container.dispose();
+    });
+
+    test('after clearAllEvents — hangs (caller should use timeout)', () async {
+      final container = ProviderContainer();
+
+      late Ref globalRef;
+      container.read(Provider<void>((ref) => globalRef = ref));
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final future = action.waitFor(timeout: Duration(milliseconds: 10));
+
+      globalRef.clearAllEvents();
+
+      await expectLater(
+        future,
+        throwsA(isA<TimeoutException>()),
+      );
+
+      container.dispose();
+    });
+  });
+
+  group('waitFor — subEvent', () {
+    test('resolves with matching emission', () async {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      final future = subAction.waitFor();
+
+      action.emit(1);
+      action.emit(2);
+
+      await expectLater(future, completion(2));
+
+      container.dispose();
+    });
+
+    test('with where + timeout — only matching with additional filter',
+        () async {
+      final container = ProviderContainer();
+
+      final action = container.read(
+        Provider<EventBusActionForRef<int>>(
+          (ref) => ref.event(EventBusConstants.onSecureInt),
+        ),
+      );
+
+      final subAction = container.read(
+        Provider<SubEventActionForRef<int>>(
+          (ref) => ref.subEvent(EventBusConstants.evenSecureInt),
+        ),
+      );
+
+      final future = subAction.waitFor(
+        where: (v, _) => v > 2,
+        timeout: Duration(seconds: 10),
+      );
+
+      action.emit(2);
+      action.emit(4);
+      action.emit(6);
+
+      await expectLater(future, completion(4));
 
       container.dispose();
     });

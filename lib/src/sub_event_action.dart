@@ -110,6 +110,25 @@ abstract class SubEventAction<T> {
     int priority = 0,
     ListenerWhere<T>? where,
   });
+
+  /// Awaits the next emission matching this subEvent's built-in `where`
+  /// predicate and returns its value.
+  ///
+  /// Returns a [Future] that completes with the value of the first matching
+  /// emission after this call.
+  ///
+  /// Optionally, provide a [timeout] — if the event doesn't fire within the
+  /// given duration, the future completes with a [TimeoutException].
+  ///
+  /// Optionally, provide an additional [where] filter on top of the
+  /// subEvent's built-in predicate.
+  ///
+  /// Default [timeout] is 30 seconds. Pass `timeout: null` to wait
+  /// indefinitely.
+  Future<T> waitFor({
+    Duration? timeout = const Duration(seconds: 30),
+    ListenerWhere<T>? where,
+  });
 }
 
 /// Shared implementation of [SubEventAction] methods common to both [Ref] and
@@ -305,6 +324,20 @@ mixin SubEventActionMixin<T> on SubEventAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  Future<T> waitFor({
+    Duration? timeout,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.waitForSubEvent(
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+      timeout: timeout,
       where: where,
     );
   }

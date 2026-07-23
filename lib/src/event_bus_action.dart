@@ -366,6 +366,32 @@ abstract class EventBusAction<T> {
     int priority = 0,
     ListenerWhere<T>? where,
   });
+
+  /// Awaits the next emission of this event and returns its value.
+  ///
+  /// Returns a [Future] that completes with the value of the first emission
+  /// after this call. Does **not** resolve with previously emitted values
+  /// (no sticky behavior).
+  ///
+  /// Optionally, provide a [timeout] — if the event doesn't fire within the
+  /// given duration, the future completes with a [TimeoutException].
+  ///
+  /// Optionally, provide a [where] filter — only emissions where the
+  /// predicate returns `true` will resolve the future.
+  ///
+  /// ```dart
+  /// final user = await ref.event(onUserLogin).waitFor(
+  ///   timeout: Duration(seconds: 5),
+  ///   where: (u, _) => u.isVerified,
+  /// );
+  /// ```
+  ///
+  /// Default [timeout] is 30 seconds. Pass `timeout: null` to wait
+  /// indefinitely (not recommended — use [listenOnceManually] instead).
+  Future<T> waitFor({
+    Duration? timeout = const Duration(seconds: 30),
+    ListenerWhere<T>? where,
+  });
 }
 
 /// Shared implementation of [EventBusAction] methods common to both [Ref] and
@@ -565,6 +591,18 @@ mixin EventBusActionMixin<T> on EventBusAction<T> {
       onError: onError,
       sticky: sticky,
       priority: priority,
+      where: where,
+    );
+  }
+
+  @override
+  Future<T> waitFor({
+    Duration? timeout,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.waitFor(
+      event.key,
+      timeout: timeout,
       where: where,
     );
   }

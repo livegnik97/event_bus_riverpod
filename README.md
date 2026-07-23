@@ -81,6 +81,7 @@ Easy, simple, and fast.
       - [When used with SubEvents](#when-used-with-subevents)
     - [20. Global API (without Riverpod)](#20-global-api-without-riverpod)
     - [21. EventBusBuilder widget](#21-eventbusbuilder-widget)
+    - [22. Await the next emission with `waitFor()`](#22-await-the-next-emission-with-waitfor)
 
 ## Installing
 
@@ -1357,3 +1358,109 @@ EventBusBuilder<int>(
 **Shared bus with `EventBusGlobal` and `ref.event()`:**
 
 The widget uses `ref.event()` / `ref.subEvent()` internally, which shares the same `EventBusSingleton` as `EventBusGlobal`. This means emissions from `EventBusGlobal` or from any provider using `ref.event()` will trigger the widget to rebuild.
+
+### 22. Await the next emission with `waitFor()`
+
+`waitFor()` returns a `Future<T>` that completes with the value of the **next matching emission**. Think of it as a one-shot listener wrapped in a `Future` — useful for inline async coordination.
+
+**Scenario: navigation after login**
+
+A login screen emits a `User` event. Multiple providers start fetching data asynchronously (cart, preferences, notifications). The navigation code needs to wait for all providers to finish before pushing the home screen:
+
+```dart
+final loginProvider = Provider.notifier<LoginNotifier>((ref) {
+  return LoginNotifier(ref);
+});
+
+class LoginNotifier {
+  final Ref ref;
+  LoginNotifier(this.ref);
+
+  Future<void> login(String email, String password) async {
+    final user = await _api.login(email, password);
+
+    // emitAsync waits for all async listeners
+    await ref.event(onUserLogin).emitAsync(user);
+
+    // Now wait for a specific event that signals data is ready
+    await ref.event(onDataReady).waitFor(
+      timeout: Duration(seconds: 10),
+    );
+
+    navigateToHome(); // safe — data is loaded
+  }
+}
+```
+
+**Scenario: handling timeout gracefully**
+
+When `waitFor` times out, it throws a `TimeoutException`. Catch it to handle the failure case — retry, show feedback, or fall back:
+
+```dart
+try {
+  await ref.event(onPaymentConfirmation).waitFor(
+    timeout: Duration(seconds: 15),
+    where: (status, _) => status == PaymentStatus.confirmed,
+  );
+  showSuccessToast('Payment confirmed!');
+} on TimeoutException {
+  ref.event(onShowSnackbar).emit('Payment is taking longer than expected. Check your transactions later.');
+  // Optionally: poll status, log to analytics, or navigate away
+}
+```
+
+**Scenario: wait for a filtered value**
+
+A payment screen emits order status events. Wait for the order to reach `confirmed` status before showing the success toast:
+
+```dart
+Future<void> placeOrder() async {
+  ref.event(onPlaceOrder).emit(order);
+
+  final confirmed = await ref.event(onOrderStatus).waitFor(
+    where: (status, _) => status == OrderStatus.confirmed,
+    timeout: Duration(seconds: 30),
+  );
+
+  showSuccessToast('Order $confirmed is confirmed!');
+}
+```
+
+**Scenario: subEvent + waitFor**
+
+Only wait for even counter values:
+
+```dart
+final evenCount = await ref.subEvent(evenSecureInt).waitFor(
+  timeout: Duration(seconds: 5),
+);
+print('First even number: $evenCount');
+```
+
+**Scenario: from a plain Dart service with `EventBusGlobal`**
+
+```dart
+class PaymentService {
+  Future<PaymentResult> processPayment(Payment payment) async {
+    EventBusGlobal.event(onPaymentInitiated).emit(payment);
+
+    final result = await EventBusGlobal.event(onPaymentResult).waitFor(
+      where: (result, _) => result.paymentId == payment.id,
+      timeout: Duration(seconds: 60),
+    );
+
+    return result;
+  }
+}
+```
+
+**Behaviour reference:**
+
+| Aspect | Behaviour |
+|--------|-----------|
+| Returns | `Future<T>` — completes with the value of the **first** emission after the call |
+| Timeout | Defaults to **30 seconds**; pass `null` to wait indefinitely (not recommended) |
+| Where | Optional per-call filter — same signature as the existing `where` parameter on listen methods |
+| Sticky | **Not supported** — `waitFor` explicitly waits for a *future* emission. For the cached value, use `lastValue`. |
+| Cleanup | Internal listener is auto-removed when the future completes (value or error). |
+| Middleware | Runs normally — the future receives the **post-middleware** value. |

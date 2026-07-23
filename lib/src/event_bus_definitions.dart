@@ -1421,6 +1421,78 @@ class EventBusCore {
     });
   }
 
+  Future<T> waitFor<T>(
+    int key, {
+    Duration? timeout,
+    ListenerWhere<T>? where,
+  }) {
+    final completer = Completer<T>();
+    ListenerDisposable? disposable;
+
+    disposable = onOnce<T>(
+      key,
+      (value) {
+        disposable?.dispose();
+        if (!completer.isCompleted) completer.complete(value);
+      },
+      where: where,
+    );
+
+    if (timeout != null) {
+      Future.delayed(timeout, () {
+        disposable?.dispose();
+        if (!completer.isCompleted) {
+          completer.completeError(
+            TimeoutException(
+              'Event did not emit within $timeout',
+              timeout,
+            ),
+          );
+        }
+      });
+    }
+
+    return completer.future;
+  }
+
+  Future<T> waitForSubEvent<T>(
+    int subKey,
+    int parentKey,
+    ListenerWhere<T> subEventWhere, {
+    Duration? timeout,
+    ListenerWhere<T>? where,
+  }) {
+    final completer = Completer<T>();
+    ListenerDisposable? disposable;
+
+    disposable = onOnceSubEvent<T>(
+      subKey,
+      parentKey,
+      subEventWhere,
+      (value) {
+        disposable?.dispose();
+        if (!completer.isCompleted) completer.complete(value);
+      },
+      where: where,
+    );
+
+    if (timeout != null) {
+      Future.delayed(timeout, () {
+        disposable?.dispose();
+        if (!completer.isCompleted) {
+          completer.completeError(
+            TimeoutException(
+              'SubEvent did not emit within $timeout',
+              timeout,
+            ),
+          );
+        }
+      });
+    }
+
+    return completer.future;
+  }
+
   // ── SubEvent stream methods ──
 
   Stream<T> streamSubEvent<T>(
