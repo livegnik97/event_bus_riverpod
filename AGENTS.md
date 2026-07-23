@@ -11,7 +11,7 @@ Single pub package (`pubspec.yaml`), not a monorepo. No codegen, build_runner, o
 - **SubEvent API**: `SubEventAction` abstract class; two impls — `SubEventActionForRef` (auto-dispose via `ref.onDispose`) and `SubEventActionForWidgetRef` (manual only). No `emit()` / `emitAsync()` / `applyMiddleware()`.
 - **Extensions** on `Ref` and `WidgetRef` provide the `.event()` and `.subEvent()` methods
 - **Event routing**: `EventBusIdentifier<T>` uses `Object.hash(eventName, T)` as the internal key (not string interpolation)
-- **SubEvents**: `SubEventIdentifier<T>` creates a filtered view of a parent event with a **mandatory** `where` predicate and its own `subEventName`. Accessed via `ref.subEvent(...)`. Has its own listener list and sticky cache (`_subEventLastValues`), independent from the parent. Auto-triggered when the parent emits. Backfills sticky cache from parent on first registration. Internal key: `Object.hash(parentKey, subEventName)`.
+- **SubEvents**: `SubEventIdentifier<T>` creates a filtered view of a parent event with a **mandatory** `where` predicate and its own `eventName`. Accessed via `ref.subEvent(...)`. Has its own listener list and sticky cache (`_subEventLastValues`), independent from the parent. Auto-triggered when the parent emits. Backfills sticky cache from parent on first registration. Internal key: `Object.hash(parentKey, eventName)`.
 
 ## Key API split
 

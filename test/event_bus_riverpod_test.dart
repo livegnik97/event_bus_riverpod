@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -3521,6 +3522,172 @@ group('EventBusGlobal — logEvents', () {
 
     expect(captured, hasLength(1));
     expect(captured[0].value, 42);
+  });
+});
+
+group('EventBusBuilder', () {
+  setUp(() {
+    EventBusSingleton.reset();
+  });
+
+  tearDown(() {
+    EventBusGlobal.clearAll();
+    EventBusSingleton.reset();
+  });
+
+  Widget wrapWithDirectionality(Widget child) {
+    return Directionality(textDirection: TextDirection.ltr, child: child);
+  }
+
+  testWidgets('rebuilds when event is emitted', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: wrapWithDirectionality(
+          EventBusBuilder<int>(
+            event: EventBusConstants.onSecureInt,
+            builder: (ctx, value) => Text('${value ?? 0}'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('0'), findsOneWidget);
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    await tester.pump();
+
+    expect(find.text('42'), findsOneWidget);
+  });
+
+  testWidgets('sticky delivers last value on init', (tester) async {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(99);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: wrapWithDirectionality(
+          EventBusBuilder<int>(
+            event: EventBusConstants.onSecureInt,
+            builder: (ctx, value) => Text('${value ?? 0}'),
+            sticky: true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('99'), findsOneWidget);
+  });
+
+  testWidgets('initialData used when no sticky value', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: wrapWithDirectionality(
+          EventBusBuilder<int>(
+            event: EventBusConstants.onSecureInt,
+            builder: (ctx, value) => Text('${value ?? 0}'),
+            initialData: 5,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('5'), findsOneWidget);
+  });
+
+  testWidgets('sticky overrides initialData', (tester) async {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(99);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: wrapWithDirectionality(
+          EventBusBuilder<int>(
+            event: EventBusConstants.onSecureInt,
+            builder: (ctx, value) => Text('${value ?? 0}'),
+            sticky: true,
+            initialData: 5,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('99'), findsOneWidget);
+  });
+
+  testWidgets('where filters which emissions rebuild', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: wrapWithDirectionality(
+          EventBusBuilder<int>(
+            event: EventBusConstants.onSecureInt,
+            builder: (ctx, value) => Text('${value ?? 0}'),
+            where: (v, _) => v > 0,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('0'), findsOneWidget);
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(-1);
+    await tester.pump();
+    expect(find.text('0'), findsOneWidget);
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    await tester.pump();
+    expect(find.text('42'), findsOneWidget);
+  });
+
+  testWidgets('with SubEventIdentifier receives matching values',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: wrapWithDirectionality(
+          EventBusBuilder<int>(
+            event: EventBusConstants.evenSecureInt,
+            builder: (ctx, value) => Text('${value ?? 0}'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('0'), findsOneWidget);
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    await tester.pump();
+    expect(find.text('0'), findsOneWidget);
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    await tester.pump();
+    expect(find.text('2'), findsOneWidget);
+  });
+
+  testWidgets('rebuilds on emit from provider-based API', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: wrapWithDirectionality(
+          EventBusBuilder<int>(
+            event: EventBusConstants.onSecureInt,
+            builder: (ctx, value) => Text('${value ?? 0}'),
+          ),
+        ),
+      ),
+    );
+
+    final action = container.read(
+      Provider<EventBusActionForRef<int>>(
+        (ref) => ref.event(EventBusConstants.onSecureInt),
+      ),
+    );
+
+    expect(find.text('0'), findsOneWidget);
+
+    action.emit(77);
+    await tester.pump();
+
+    expect(find.text('77'), findsOneWidget);
   });
 });
 

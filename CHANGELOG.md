@@ -2,6 +2,9 @@
 
 * **Global API (`EventBusGlobal`)**: use the event bus from anywhere — plain Dart classes, services, or any code without Riverpod — via `EventBusGlobal.event()` / `EventBusGlobal.subEvent()`. The bus is backed by `EventBusSingleton` and is shared with the provider-based API (`ref.event`), so emits and listeners work across both worlds seamlessly.
 * **`EventBusActionForGlobal<T>` / `SubEventActionForGlobal<T>`**: new action classes that work without `Ref` or `WidgetRef`. They implement the same `EventBusAction<T>` / `SubEventAction<T>` interfaces and support all manual methods: `listenManually()`, `listenManuallyWithMeta()`, `listenManuallyAsync()`, `listenManuallyAsyncWithMeta()`, `emit()`, `emitAsync()`, `stream()`, `streamWithMeta()`, `hasClients`, `lastValue`, `history`, `clearListeners()`, `clearSticky()`, `applyMiddleware()`, `clearMiddlewares()`, `listenOnceManually()`, `listenOnceManuallyWithMeta()`.
+* **`EventBusIdentifierBase<T>`**: new abstract base class that both `EventBusIdentifier<T>` and `SubEventIdentifier<T>` extend. Exposes `eventName`, `type`, `key`, and `historySize` uniformly. Enables APIs like `EventBusBuilder` that accept either type polymorphically.
+* **`EventBusBuilder<T>`**: new `ConsumerStatefulWidget` that rebuilds whenever an event is emitted. Accepts both `EventBusIdentifier` and `SubEventIdentifier` via the common base type. Supports `sticky`, `initialData`, `where`, and `priority`. Perfect for reactive widgets that update in response to events without managing a subscription lifecycle.
+* **Breaking change**: `SubEventIdentifier.subEventName` renamed to `eventName` for consistency with the base class.
 
 ## 2.9.3
 

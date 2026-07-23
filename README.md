@@ -38,6 +38,7 @@ Easy, simple, and fast.
 - **SubEvents** – create filtered views of events with their own sticky cache and listener list using a mandatory `where` predicate; accessed via `ref.subEvent()`
 - **Full reset** – wipe all listeners, sticky caches, middlewares, and subEvents at once with `ref.clearAllEvents()`
 - **Global API** – use the event bus from anywhere without Riverpod with `EventBusGlobal.event()` / `EventBusGlobal.subEvent()`, backed by the same singleton bus that powers `ref.event()`
+- **EventBusBuilder widget** – a `ConsumerStatefulWidget` that rebuilds whenever an event is emitted; accepts both `EventBusIdentifier` and `SubEventIdentifier` polymorphically via `EventBusIdentifierBase`
 
 ## Table of Contents
 
@@ -79,6 +80,7 @@ Easy, simple, and fast.
       - [Error isolation](#error-isolation)
       - [When used with SubEvents](#when-used-with-subevents)
     - [20. Global API (without Riverpod)](#20-global-api-without-riverpod)
+    - [21. EventBusBuilder widget](#21-eventbusbuilder-widget)
 
 ## Installing
 
@@ -1290,3 +1292,68 @@ ref.event(onUserLogin).emit(User('Bob'));
 ```
 
 `EventBusGlobal` also exposes `logEvents()` and `clearAll()` with the same behavior as their `Ref` / `WidgetRef` counterparts.
+
+### 21. EventBusBuilder widget
+
+`EventBusBuilder` is a `ConsumerStatefulWidget` that rebuilds whenever an event is emitted. It accepts both `EventBusIdentifier` and `SubEventIdentifier` polymorphically through a common `EventBusIdentifierBase` type — no need to worry about which type you pass.
+
+```dart
+EventBusBuilder<int>(
+  event: onCounter,
+  builder: (context, value) => Text('${value ?? 0}'),
+)
+```
+
+The widget manages its own subscription lifecycle automatically — it subscribes in `initState`, unsubscribes in `dispose`, and re-subscribes if the event identifier or filter parameters change.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event` | `EventBusIdentifierBase<T>` | The event or subEvent to listen to |
+| `builder` | `Widget Function(BuildContext, T?)` | Called on each emission with the new value (`T?` — `null` before any emission) |
+| `sticky` | `bool` | If `true`, deliver the last cached value immediately **(has priority over `initialData`)** |
+| `initialData` | `T?` | Initial value shown before the first emission (only used when there's no sticky cached value) |
+| `where` | `ListenerWhere<T>?` | Optional predicate to filter which emissions trigger a rebuild |
+| `priority` | `int` | Listener execution priority (default `0`, higher runs first) |
+
+
+**Sticky + initialData:**
+
+When `sticky: true` and there's a cached value, the sticky value takes precedence. `initialData` is only used when there's no sticky cache:
+
+```dart
+// Sticky value (42) overrides initialData (0)
+EventBusGlobal.event(onCounter).emit(42);
+
+EventBusBuilder<int>(
+  event: onCounter,
+  builder: (ctx, value) => Text('${value ?? 0}'),
+  sticky: true,
+  initialData: 0,
+);
+// Shows "42", not "0"
+```
+
+**With SubEvent:**
+
+```dart
+EventBusBuilder<int>(
+  event: evenSecureInt, // SubEventIdentifier — only fires for even values
+  builder: (ctx, value) => Text('Even: $value'),
+);
+```
+
+**With where filter:**
+
+```dart
+EventBusBuilder<int>(
+  event: onCounter,
+  builder: (ctx, value) => Text('${value ?? 0}'),
+  where: (v, _) => v > 0, // only rebuilds for positive values
+);
+```
+
+**Shared bus with `EventBusGlobal` and `ref.event()`:**
+
+The widget uses `ref.event()` / `ref.subEvent()` internally, which shares the same `EventBusSingleton` as `EventBusGlobal`. This means emissions from `EventBusGlobal` or from any provider using `ref.event()` will trigger the widget to rebuild.
