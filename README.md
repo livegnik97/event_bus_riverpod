@@ -37,6 +37,7 @@ Easy, simple, and fast.
 - **Listener filter** – filter which emissions reach a listener with the `where` parameter, using the value and/or its metadata
 - **SubEvents** – create filtered views of events with their own sticky cache and listener list using a mandatory `where` predicate; accessed via `ref.subEvent()`
 - **Full reset** – wipe all listeners, sticky caches, middlewares, and subEvents at once with `ref.clearAllEvents()`
+- **Global API** – use the event bus from anywhere without Riverpod with `EventBusGlobal.event()` / `EventBusGlobal.subEvent()`, backed by the same singleton bus that powers `ref.event()`
 
 ## Table of Contents
 
@@ -60,7 +61,7 @@ Easy, simple, and fast.
       - [Clear all events](#clear-all-events)
     - [10. Async listeners](#10-async-listeners)
     - [11. Sticky events (last value cache)](#11-sticky-events-last-value-cache)
-      - [Last value (unsibscribed access)](#last-value-unsibscribed-access)
+      - [Last value (unsubscribed access)](#last-value-unsubscribed-access)
     - [12. Middleware pipeline](#12-middleware-pipeline)
     - [13. Execution priority](#13-execution-priority)
     - [14. BusMetadata (emission metadata)](#14-busmetadata-emission-metadata)
@@ -77,6 +78,7 @@ Easy, simple, and fast.
       - [What gets logged](#what-gets-logged)
       - [Error isolation](#error-isolation)
       - [When used with SubEvents](#when-used-with-subevents)
+    - [20. Global API (without Riverpod)](#20-global-api-without-riverpod)
 
 ## Installing
 
@@ -84,7 +86,7 @@ Add the package from [pub.dev](https://pub.dev/packages/event_bus_riverpod):
 
 ```yaml
 dependencies:
-  event_bus_riverpod: ^2.9.3
+  event_bus_riverpod: ^3.0.0
   flutter_riverpod: ^3.0.0
 ```
 
@@ -559,7 +561,7 @@ ref.event(onNullable).listen((v) {
 ref.event(onUserLogin).clearSticky(); // next sticky subscriber won't receive anything
 ```
 
-#### Last value (unsibscribed access)
+#### Last value (unsubscribed access)
 
 Both `EventBusAction<T>` and `SubEventAction<T>` expose `T? get lastValue` to read the last emitted value **without subscribing** — useful to initialize a form field or show a snapshot.
 
@@ -1216,3 +1218,75 @@ If the callback throws, the error is silently caught — it never crashes the bu
 #### When used with SubEvents
 
 The logger fires for the parent event, **not** for each subEvent. SubEvents are derived views and do not emit independently.
+
+### 20. Global API (without Riverpod)
+
+Use `EventBusGlobal` to interact with the event bus from **anywhere** — plain Dart classes, services, repositories, or any code that doesn't have access to a `Ref` or `WidgetRef`. No Riverpod dependency required.
+
+The global API is backed by `EventBusSingleton`, which is the **same** singleton instance used by `ref.event()` / `ref.subEvent()`. Emits and listeners work seamlessly across both APIs.
+
+```dart
+import 'package:event_bus_riverpod/event_bus_riverpod.dart';
+
+class AnalyticsService {
+  void trackScreen(String screenName) {
+    // Emit from a plain Dart service — no Ref needed
+    EventBusGlobal.event(onScreenView).emit(screenName);
+  }
+}
+```
+
+```dart
+class CartRepository {
+  ListenerDisposable? _disposable;
+
+  void startListening() {
+    _disposable = EventBusGlobal.event(onAddToCart).listenManually((item) {
+      _saveToLocalDb(item);
+    });
+  }
+
+  void stopListening() {
+    _disposable?.dispose();
+  }
+}
+```
+
+**API reference:**
+
+| Method | Description |
+|--------|-------------|
+| `EventBusGlobal.event(id)` | Returns an `EventBusActionForGlobal<T>` for the given event |
+| `EventBusGlobal.subEvent(id)` | Returns a `SubEventActionForGlobal<T>` for the given subEvent |
+| `EventBusGlobal.clearAll()` | Wipes all listeners, sticky caches, middlewares, and subEvents |
+| `EventBusGlobal.logEvents(cb)` | Registers a global logger; returns `ListenerDisposable` |
+
+`EventBusActionForGlobal<T>` supports all the manual methods: `listenManually()`, `listenManuallyWithMeta()`, `listenManuallyAsync()`, `listenManuallyAsyncWithMeta()`, `emit()`, `emitAsync()`, `stream()`, `streamWithMeta()`, `hasClients`, `lastValue`, `history`, `clearListeners()`, `clearSticky()`, `applyMiddleware()`, `clearMiddlewares()`, `listenOnceManually()`, `listenOnceManuallyWithMeta()`.
+
+`SubEventActionForGlobal<T>` supports: `listenManually()`, `listenManuallyWithMeta()`, `listenManuallyAsync()`, `listenManuallyAsyncWithMeta()`, `stream()`, `streamWithMeta()`, `hasClients`, `lastValue`, `history`, `clearListeners()`, `clearSticky()`, `listenOnceManually()`, `listenOnceManuallyWithMeta()`.
+
+**Shared bus example:**
+
+```dart
+// Inside a provider — auto-disposed
+ref.event(onUserLogin).listen((user) {
+  print('Provider heard: ${user.name}');
+});
+
+// From a global service — same bus
+EventBusGlobal.event(onUserLogin).emit(User('Alice'));
+// Provider listener prints: Provider heard: Alice
+```
+
+```dart
+// Global listener
+EventBusGlobal.event(onUserLogin).listenManually((user) {
+  print('Global heard: ${user.name}');
+});
+
+// Emit from a provider — global listener receives it
+ref.event(onUserLogin).emit(User('Bob'));
+// Global listener prints: Global heard: Bob
+```
+
+`EventBusGlobal` also exposes `logEvents()` and `clearAll()` with the same behavior as their `Ref` / `WidgetRef` counterparts.

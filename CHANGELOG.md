@@ -1,3 +1,8 @@
+## 3.0.0
+
+* **Global API (`EventBusGlobal`)**: use the event bus from anywhere — plain Dart classes, services, or any code without Riverpod — via `EventBusGlobal.event()` / `EventBusGlobal.subEvent()`. The bus is backed by `EventBusSingleton` and is shared with the provider-based API (`ref.event`), so emits and listeners work across both worlds seamlessly.
+* **`EventBusActionForGlobal<T>` / `SubEventActionForGlobal<T>`**: new action classes that work without `Ref` or `WidgetRef`. They implement the same `EventBusAction<T>` / `SubEventAction<T>` interfaces and support all manual methods: `listenManually()`, `listenManuallyWithMeta()`, `listenManuallyAsync()`, `listenManuallyAsyncWithMeta()`, `emit()`, `emitAsync()`, `stream()`, `streamWithMeta()`, `hasClients`, `lastValue`, `history`, `clearListeners()`, `clearSticky()`, `applyMiddleware()`, `clearMiddlewares()`, `listenOnceManually()`, `listenOnceManuallyWithMeta()`.
+
 ## 2.9.3
 
 * **Shortened package description** to stay within pub.dev's 180-character limit.

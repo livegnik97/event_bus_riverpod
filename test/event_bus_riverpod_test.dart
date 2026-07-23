@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:event_bus_riverpod/event_bus_riverpod.dart';
+import 'package:event_bus_riverpod/src/event_bus_singleton.dart';
 import 'event_bus_constants.dart';
 
 void main() {
@@ -2774,4 +2775,767 @@ void main() {
       container.dispose();
     });
   });
+
+  group('EventBusGlobal — event actions', () {
+  setUp(() {
+    EventBusSingleton.reset();
+  });
+
+  tearDown(() {
+    EventBusGlobal.clearAll();
+    EventBusSingleton.reset();
+  });
+
+  test('listenManually and emit', () {
+    final captured = <int>[];
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+
+    expect(EventBusGlobal.event(EventBusConstants.onSecureInt).hasClients, true);
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    expect(captured, [42]);
+
+    d.dispose();
+    expect(EventBusGlobal.event(EventBusConstants.onSecureInt).hasClients, false);
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(43);
+    expect(captured, [42]);
+  });
+
+  test('listenManually with dispose', () {
+    final captured = <int>[];
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    expect(captured, [1]);
+
+    d.dispose();
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    expect(captured, [1]);
+  });
+
+  test('listenManuallyWithMeta', () {
+    BusMetadata? capturedMeta;
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt)
+        .listenManuallyWithMeta((v, meta) {
+      capturedMeta = meta;
+    });
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42, source: 'global');
+    expect(capturedMeta!.source, 'global');
+    d.dispose();
+  });
+
+  test('listenManuallyAsync and emitAsync', () async {
+    final captured = <int>[];
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt)
+        .listenManuallyAsync((v) async {
+      await Future(() {});
+      captured.add(v);
+    });
+
+    await EventBusGlobal.event(EventBusConstants.onSecureInt).emitAsync(42);
+    expect(captured, [42]);
+
+    d.dispose();
+    await EventBusGlobal.event(EventBusConstants.onSecureInt).emitAsync(43);
+    expect(captured, [42]);
+  });
+
+  test('listenManuallyAsyncWithMeta', () async {
+    BusMetadata? capturedMeta;
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt)
+        .listenManuallyAsyncWithMeta((v, meta) async {
+      capturedMeta = meta;
+    });
+    await EventBusGlobal.event(EventBusConstants.onSecureInt).emitAsync(
+      42,
+      source: 'async-global',
+    );
+    expect(capturedMeta!.source, 'async-global');
+    d.dispose();
+  });
+
+  test('sticky receives last value immediately', () {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+
+    final captured = <int>[];
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+      sticky: true,
+    );
+    expect(captured, [42]);
+    d.dispose();
+  });
+
+  test('sticky without emit does not deliver', () {
+    final captured = <int>[];
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+      sticky: true,
+    );
+    expect(captured, isEmpty);
+    d.dispose();
+  });
+
+  test('clearSticky removes cached value', () {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).clearSticky();
+
+    final captured = <int>[];
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+      sticky: true,
+    );
+    expect(captured, isEmpty);
+    d.dispose();
+  });
+
+  test('stream receives events', () async {
+    final captured = <int>[];
+    final sub = EventBusGlobal.event(EventBusConstants.onSecureInt)
+        .stream()
+        .listen((v) => captured.add(v));
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    await Future(() {});
+    expect(captured, [1, 2]);
+
+    await sub.cancel();
+  });
+
+  test('stream stops after cancel', () async {
+    final captured = <int>[];
+    final sub = EventBusGlobal.event(EventBusConstants.onSecureInt)
+        .stream()
+        .listen((v) => captured.add(v));
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    await Future(() {});
+    expect(captured, [1]);
+
+    await sub.cancel();
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    await Future(() {});
+    expect(captured, [1]);
+  });
+
+  test('streamWithMeta delivers metadata', () async {
+    final captured = <(int, BusMetadata)>[];
+    final sub = EventBusGlobal.event(EventBusConstants.onSecureInt)
+        .streamWithMeta()
+        .listen((v) => captured.add(v));
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42, source: 'stream');
+    await Future(() {});
+    expect(captured, hasLength(1));
+    expect(captured[0].$1, 42);
+    expect(captured[0].$2.source, 'stream');
+
+    await sub.cancel();
+  });
+
+  test('hasClients', () {
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).hasClients,
+      false,
+    );
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) {},
+    );
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).hasClients,
+      true,
+    );
+    d.dispose();
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).hasClients,
+      false,
+    );
+  });
+
+  test('clearListeners removes all listeners', () {
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).hasClients,
+      true,
+    );
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).clearListeners();
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).hasClients,
+      false,
+    );
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    expect(captured, isEmpty);
+  });
+
+  test('applyMiddleware transforms value', () {
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).applyMiddleware(
+      (value, next) => next(value * 2),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(21);
+    expect(captured, [42]);
+  });
+
+  test('middleware removal via ListenerDisposable', () {
+    final captured = <int>[];
+    final midDisposable = EventBusGlobal.event(EventBusConstants.onSecureInt)
+        .applyMiddleware((value, next) => next(value * 10));
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    expect(captured, [10]);
+
+    midDisposable.dispose();
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    expect(captured, [10, 2]);
+  });
+
+  test('clearMiddlewares removes all middlewares', () {
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).applyMiddleware(
+      (value, next) => next(value * 10),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).clearMiddlewares();
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(5);
+    expect(captured, [5]);
+  });
+
+  test('lastValue', () {
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).lastValue,
+      isNull,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).lastValue,
+      42,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).clearSticky();
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).lastValue,
+      isNull,
+    );
+  });
+
+  test('history', () {
+    final action = EventBusGlobal.event(EventBusConstants.onHistoryInt);
+    expect(action.history, isEmpty);
+
+    action.emit(10);
+    action.emit(20);
+    action.emit(30);
+
+    expect(action.history.length, 3);
+    expect(action.history[0].value, 10);
+    expect(action.history[1].value, 20);
+    expect(action.history[2].value, 30);
+
+    action.clearHistory();
+    expect(action.history, isEmpty);
+  });
+
+  test('history respects historySize', () {
+    final action = EventBusGlobal.event(EventBusConstants.onHistoryInt);
+    for (int i = 1; i <= 10; i++) {
+      action.emit(i);
+    }
+    final h = action.history;
+    expect(h.length, 5);
+    expect(h[0].value, 6);
+    expect(h[4].value, 10);
+  });
+
+  test('onError catches listener error', () {
+    final capturedErrors = <Object>[];
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => throw Exception('fail: $v'),
+      onError: (e, st) => capturedErrors.add(e),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    expect(capturedErrors.length, 1);
+    expect(capturedErrors[0].toString(), contains('fail: 42'));
+    d.dispose();
+  });
+
+  test('other listeners still fire when one throws', () {
+    final captured = <int>[];
+    final capturedErrors = <Object>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => throw Exception('fail'),
+      onError: (e, st) => capturedErrors.add(e),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(99);
+    expect(capturedErrors.length, 1);
+    expect(captured, [99]);
+  });
+
+  test('where filters values', () {
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+      where: (v, _) => v > 0,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(-1);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(5);
+    expect(captured, [5]);
+  });
+
+  test('priority execution order', () {
+    final log = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => log.add(1),
+      priority: 10,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => log.add(2),
+      priority: 0,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => log.add(3),
+      priority: -10,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    expect(log, [1, 2, 3]);
+  });
+
+  test('listenOnceManually fires once', () {
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenOnceManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(10);
+    expect(captured, [10]);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(20);
+    expect(captured, [10]);
+  });
+
+  test('listenOnceManually with sticky', () {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenOnceManually(
+      (v) => captured.add(v),
+      sticky: true,
+    );
+    expect(captured, [42]);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(99);
+    expect(captured, [42]);
+  });
+
+  test('listenOnceManually dispose prevents firing', () {
+    final captured = <int>[];
+    final d = EventBusGlobal.event(EventBusConstants.onSecureInt)
+        .listenOnceManually((v) => captured.add(v));
+    d.dispose();
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    expect(captured, isEmpty);
+  });
+
+  test('listenOnceManuallyWithMeta fires once', () {
+    BusMetadata? capturedMeta;
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenOnceManuallyWithMeta(
+      (v, meta) {
+        capturedMeta = meta;
+      },
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(7, source: 'once');
+    expect(capturedMeta!.source, 'once');
+
+    capturedMeta = null;
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(8);
+    expect(capturedMeta, isNull);
+  });
+
+  test('emitAsync with async listeners', () async {
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManuallyAsync(
+      (v) async {
+        await Future(() {});
+        captured.add(v);
+      },
+    );
+    await EventBusGlobal.event(EventBusConstants.onSecureInt).emitAsync(42);
+    expect(captured, [42]);
+  });
+});
+
+group('EventBusGlobal — subEvent actions', () {
+  setUp(() {
+    EventBusSingleton.reset();
+  });
+
+  tearDown(() {
+    EventBusGlobal.clearAll();
+    EventBusSingleton.reset();
+  });
+
+  test('listenManually receives matching values', () {
+    final captured = <int>[];
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(3);
+    expect(captured, [2]);
+  });
+
+  test('listenManually and dispose', () {
+    final captured = <int>[];
+    final d = EventBusGlobal.subEvent(EventBusConstants.evenSecureInt)
+        .listenManually((v) => captured.add(v));
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    expect(captured, [2]);
+
+    d.dispose();
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(4);
+    expect(captured, [2]);
+  });
+
+  test('sticky receives last matching value', () {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+
+    final captured = <int>[];
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).listenManually(
+      (v) => captured.add(v),
+      sticky: true,
+    );
+    expect(captured, [2]);
+  });
+
+  test('sticky does not receive non-matching value', () {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    final captured = <int>[];
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).listenManually(
+      (v) => captured.add(v),
+      sticky: true,
+    );
+    expect(captured, isEmpty);
+  });
+
+  test('hasClients', () {
+    expect(
+      EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).hasClients,
+      false,
+    );
+    final d = EventBusGlobal.subEvent(EventBusConstants.evenSecureInt)
+        .listenManually((v) {});
+    expect(
+      EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).hasClients,
+      true,
+    );
+    d.dispose();
+    expect(
+      EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).hasClients,
+      false,
+    );
+  });
+
+  test('clearListeners removes only subEvent listeners', () {
+    final subCaptured = <int>[];
+    final parentCaptured = <int>[];
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).listenManually(
+      (v) => subCaptured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => parentCaptured.add(v),
+    );
+
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).clearListeners();
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(4);
+
+    expect(subCaptured, isEmpty);
+    expect(parentCaptured, [2, 4]);
+  });
+
+  test('stream receives filtered values', () async {
+    final captured = <int>[];
+    final sub = EventBusGlobal.subEvent(EventBusConstants.evenSecureInt)
+        .stream()
+        .listen((v) => captured.add(v));
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(3);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(4);
+    await Future(() {});
+    expect(captured, [2, 4]);
+
+    await sub.cancel();
+  });
+
+  test('additional where further narrows', () {
+    final captured = <int>[];
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).listenManually(
+      (v) => captured.add(v),
+      where: (v, _) => v > 2,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(4);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(6);
+    expect(captured, [4, 6]);
+  });
+
+  test('lastValue', () {
+    expect(
+      EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).lastValue,
+      isNull,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    expect(
+      EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).lastValue,
+      isNull,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    expect(
+      EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).lastValue,
+      2,
+    );
+  });
+
+  test('listenOnceManually fires once', () {
+    final captured = <int>[];
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).listenOnceManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    expect(captured, [2]);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(4);
+    expect(captured, [2]);
+  });
+
+  test('listenOnceManually with sticky', () {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    final captured = <int>[];
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).listenOnceManually(
+      (v) => captured.add(v),
+      sticky: true,
+    );
+    expect(captured, [2]);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(4);
+    expect(captured, [2]);
+  });
+});
+
+group('EventBusGlobal — shared bus with provider', () {
+  setUp(() {
+    EventBusSingleton.reset();
+  });
+
+  tearDown(() {
+    EventBusGlobal.clearAll();
+    EventBusSingleton.reset();
+  });
+
+  test('emit via EventBusGlobal received by provider listener', () {
+    final captured = <int>[];
+    final container = ProviderContainer();
+    container.read(Provider<void>((ref) {
+      ref.event(EventBusConstants.onSecureInt).listen((v) {
+        captured.add(v);
+      });
+    }));
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    expect(captured, [42]);
+
+    container.dispose();
+  });
+
+  test('emit via provider received by EventBusGlobal listener', () {
+    final captured = <int>[];
+    final container = ProviderContainer();
+    final action = container.read(
+      Provider<EventBusActionForRef<int>>(
+        (ref) => ref.event(EventBusConstants.onSecureInt),
+      ),
+    );
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+
+    action.emit(99);
+    expect(captured, [99]);
+
+    container.dispose();
+  });
+
+  test('subEvent via EventBusGlobal matches emit via provider', () {
+    final captured = <int>[];
+    final container = ProviderContainer();
+    final action = container.read(
+      Provider<EventBusActionForRef<int>>(
+        (ref) => ref.event(EventBusConstants.onSecureInt),
+      ),
+    );
+
+    EventBusGlobal.subEvent(EventBusConstants.evenSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+
+    action.emit(1);
+    action.emit(2);
+    expect(captured, [2]);
+
+    container.dispose();
+  });
+});
+
+group('EventBusGlobal — clearAll', () {
+  setUp(() {
+    EventBusSingleton.reset();
+  });
+
+  tearDown(() {
+    EventBusGlobal.clearAll();
+    EventBusSingleton.reset();
+  });
+
+  test('clearAll removes all listeners', () {
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.clearAll();
+
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).hasClients,
+      false,
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    expect(captured, isEmpty);
+  });
+
+  test('clearAll clears sticky cache', () {
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+    EventBusGlobal.clearAll();
+
+    expect(
+      EventBusGlobal.event(EventBusConstants.onSecureInt).lastValue,
+      isNull,
+    );
+  });
+
+  test('clearAll clears middlewares', () {
+    final captured = <int>[];
+    EventBusGlobal.event(EventBusConstants.onSecureInt).applyMiddleware(
+      (value, next) => next(value * 10),
+    );
+    EventBusGlobal.clearAll();
+
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => captured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(5);
+    expect(captured, [5]);
+  });
+});
+
+group('EventBusGlobal — logEvents', () {
+  setUp(() {
+    EventBusSingleton.reset();
+  });
+
+  tearDown(() {
+    EventBusGlobal.clearAll();
+    EventBusSingleton.reset();
+  });
+
+  test('captures event name, value and metadata', () {
+    final captured = <LogEntry<Object?>>[];
+    EventBusGlobal.logEvents((entry) => captured.add(entry));
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(42);
+
+    expect(captured, hasLength(1));
+    expect(captured[0].value, 42);
+    expect(captured[0].metadata.timestamp, isA<DateTime>());
+  });
+
+  test('fires before middleware', () {
+    final logCaptured = <LogEntry<Object?>>[];
+    final listenerCaptured = <int>[];
+
+    EventBusGlobal.logEvents((entry) => logCaptured.add(entry));
+    EventBusGlobal.event(EventBusConstants.onSecureInt).applyMiddleware(
+      (value, next) => next(value * 2),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).listenManually(
+      (v) => listenerCaptured.add(v),
+    );
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(5);
+
+    expect(logCaptured, hasLength(1));
+    expect(logCaptured[0].value, 5);
+    expect(listenerCaptured, [10]);
+  });
+
+  test('fires on every emit', () {
+    final captured = <LogEntry<Object?>>[];
+    EventBusGlobal.logEvents((entry) => captured.add(entry));
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+
+    expect(captured, hasLength(2));
+    expect(captured[0].value, 1);
+    expect(captured[1].value, 2);
+  });
+
+  test('dispose stops logging', () {
+    final captured = <LogEntry<Object?>>[];
+    final d = EventBusGlobal.logEvents((entry) => captured.add(entry));
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(1);
+    expect(captured, hasLength(1));
+
+    d.dispose();
+    EventBusGlobal.event(EventBusConstants.onSecureInt).emit(2);
+    expect(captured, hasLength(1));
+  });
+
+  test('fires with emitAsync', () async {
+    final captured = <LogEntry<Object?>>[];
+    EventBusGlobal.logEvents((entry) => captured.add(entry));
+    await EventBusGlobal.event(EventBusConstants.onSecureInt).emitAsync(42);
+
+    expect(captured, hasLength(1));
+    expect(captured[0].value, 42);
+  });
+});
+
+group('EventBusSingleton', () {
+  test('getInstance returns same instance', () {
+    final a = EventBusSingleton.getInstance();
+    final b = EventBusSingleton.getInstance();
+    expect(identical(a, b), true);
+  });
+
+  test('reset creates new instance', () {
+    final a = EventBusSingleton.getInstance();
+    EventBusSingleton.reset();
+    final b = EventBusSingleton.getInstance();
+    expect(identical(a, b), false);
+  });
+});
 }
