@@ -128,6 +128,224 @@ class EventBusCore {
     }
   }
 
+  ListenerDisposable? _registerListener<T>({
+    required int key,
+    required Function callback,
+    Ref? ref,
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+    bool isAsync = false,
+    bool hasMetadata = false,
+  }) {
+    if (hasMetadata) {
+      if (sticky) {
+        _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
+      }
+    } else {
+      if (sticky) {
+        _tryDeliverSticky<T>(key, where, (v) => callback(v));
+      }
+    }
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      isAsync: isAsync,
+      hasMetadata: hasMetadata,
+      priority: priority,
+      where: where,
+    );
+    _addListener(key, entry);
+    if (ref != null) {
+      ref.onDispose(() => _removeListener(key, entry));
+      return null;
+    }
+    return ListenerDisposable(() => _removeListener(key, entry));
+  }
+
+  ListenerDisposable? _registerSubEventListener<T>({
+    required int subKey,
+    required int parentKey,
+    required dynamic subEventWhere,
+    required Function callback,
+    Ref? ref,
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+    bool isAsync = false,
+    bool hasMetadata = false,
+  }) {
+    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+    if (hasMetadata) {
+      if (sticky) {
+        _tryDeliverSubEventStickyWithMeta<T>(
+          subKey,
+          parentKey,
+          subEventWhere,
+          where,
+          (v, m) => callback(v, m),
+        );
+      }
+    } else {
+      if (sticky) {
+        _tryDeliverSubEventSticky<T>(
+          subKey,
+          parentKey,
+          subEventWhere,
+          where,
+          (v) => callback(v),
+        );
+      }
+    }
+    final entry = _ListenerEntry(
+      callback,
+      onError: onError,
+      isAsync: isAsync,
+      hasMetadata: hasMetadata,
+      priority: priority,
+      where: where,
+    );
+    _addSubEventListener(subKey, entry);
+    if (ref != null) {
+      ref.onDispose(() => _removeSubEventListener(subKey, entry));
+      return null;
+    }
+    return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
+  }
+
+  ListenerDisposable? _registerOnceListener<T>({
+    required int key,
+    required Function callback,
+    Ref? ref,
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+    bool hasMetadata = false,
+  }) {
+    _ListenerEntry? entry;
+    void wrapped(T value, [BusMetadata? metadata]) {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+      if (hasMetadata) {
+        callback(value, metadata!);
+      } else {
+        callback(value);
+      }
+    }
+
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      hasMetadata: hasMetadata,
+      where: where,
+    );
+    entry = e1;
+    _addListener(key, e1);
+    if (hasMetadata) {
+      if (sticky) {
+        _tryDeliverStickyWithMeta<T>(key, where, (v, m) => wrapped(v, m));
+      }
+    } else {
+      if (sticky) {
+        _tryDeliverSticky<T>(key, where, (v) => wrapped(v));
+      }
+    }
+    if (ref != null) {
+      ref.onDispose(() {
+        if (entry != null) {
+          _removeListener(key, entry!);
+          entry = null;
+        }
+      });
+      return null;
+    }
+    return ListenerDisposable(() {
+      if (entry != null) {
+        _removeListener(key, entry!);
+        entry = null;
+      }
+    });
+  }
+
+  ListenerDisposable? _registerOnceSubEventListener<T>({
+    required int subKey,
+    required int parentKey,
+    required dynamic subEventWhere,
+    required Function callback,
+    Ref? ref,
+    void Function(Object, StackTrace)? onError,
+    bool sticky = false,
+    int priority = 0,
+    ListenerWhere<T>? where,
+    bool hasMetadata = false,
+  }) {
+    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+    _ListenerEntry? entry;
+    void wrapped(T value, [BusMetadata? metadata]) {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+      if (hasMetadata) {
+        callback(value, metadata!);
+      } else {
+        callback(value);
+      }
+    }
+
+    final e1 = _ListenerEntry(
+      wrapped,
+      onError: onError,
+      priority: priority,
+      hasMetadata: hasMetadata,
+      where: where,
+    );
+    entry = e1;
+    _addSubEventListener(subKey, e1);
+    if (hasMetadata) {
+      if (sticky) {
+        _tryDeliverSubEventStickyWithMeta<T>(
+          subKey,
+          parentKey,
+          subEventWhere,
+          where,
+          (v, m) => wrapped(v, m),
+        );
+      }
+    } else {
+      if (sticky) {
+        _tryDeliverSubEventSticky<T>(
+          subKey,
+          parentKey,
+          subEventWhere,
+          where,
+          (v) => wrapped(v),
+        );
+      }
+    }
+    if (ref != null) {
+      ref.onDispose(() {
+        if (entry != null) {
+          _removeSubEventListener(subKey, entry!);
+          entry = null;
+        }
+      });
+      return null;
+    }
+    return ListenerDisposable(() {
+      if (entry != null) {
+        _removeSubEventListener(subKey, entry!);
+        entry = null;
+      }
+    });
+  }
+
   void listen<T>(
     Ref ref,
     int key,
@@ -137,106 +355,79 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    if (sticky) {
-      _tryDeliverSticky<T>(key, where, (v) => callback(v));
-    }
-    final entry = _ListenerEntry(
-      callback,
+    _registerListener(
+      key: key,
+      callback: callback,
+      ref: ref,
       onError: onError,
+      sticky: sticky,
       priority: priority,
       where: where,
     );
-
-    _addListener(key, entry);
-
-    ref.onDispose(() {
-      _removeListener(key, entry);
-    });
   }
 
   void listenAsync<T>(
     Ref ref,
     int key,
     ListenerCallbackAsync<T> callback, {
-
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    if (sticky) {
-      _tryDeliverSticky<T>(key, where, (v) => callback(v));
-    }
-    final entry = _ListenerEntry(
-      callback,
+    _registerListener(
+      key: key,
+      callback: callback,
+      ref: ref,
       onError: onError,
-      isAsync: true,
+      sticky: sticky,
       priority: priority,
       where: where,
+      isAsync: true,
     );
-
-    _addListener(key, entry);
-
-    ref.onDispose(() {
-      _removeListener(key, entry);
-    });
   }
 
   void listenWithMeta<T>(
     Ref ref,
     int key,
     ListenerWithMetaCallback<T> callback, {
-
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    if (sticky) {
-      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
-    }
-    final entry = _ListenerEntry(
-      callback,
+    _registerListener(
+      key: key,
+      callback: callback,
+      ref: ref,
       onError: onError,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
+      hasMetadata: true,
     );
-
-    _addListener(key, entry);
-
-    ref.onDispose(() {
-      _removeListener(key, entry);
-    });
   }
 
   void listenAsyncWithMeta<T>(
     Ref ref,
     int key,
     ListenerWithMetaCallbackAsync<T> callback, {
-
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    if (sticky) {
-      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
-    }
-    final entry = _ListenerEntry(
-      callback,
+    _registerListener(
+      key: key,
+      callback: callback,
+      ref: ref,
       onError: onError,
-      isAsync: true,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
+      isAsync: true,
+      hasMetadata: true,
     );
-
-    _addListener(key, entry);
-
-    ref.onDispose(() {
-      _removeListener(key, entry);
-    });
   }
 
   ListenerDisposable on<T>(
@@ -247,21 +438,14 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    if (sticky) {
-      _tryDeliverSticky<T>(key, where, (v) => callback(v));
-    }
-    final entry = _ListenerEntry(
-      callback,
+    return _registerListener(
+      key: key,
+      callback: callback,
       onError: onError,
+      sticky: sticky,
       priority: priority,
       where: where,
-    );
-
-    _addListener(key, entry);
-
-    return ListenerDisposable(() {
-      _removeListener(key, entry);
-    });
+    )!;
   }
 
   ListenerDisposable onAsync<T>(
@@ -272,22 +456,15 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    if (sticky) {
-      _tryDeliverSticky<T>(key, where, (v) => callback(v));
-    }
-    final entry = _ListenerEntry(
-      callback,
+    return _registerListener(
+      key: key,
+      callback: callback,
       onError: onError,
-      isAsync: true,
+      sticky: sticky,
       priority: priority,
       where: where,
-    );
-
-    _addListener(key, entry);
-
-    return ListenerDisposable(() {
-      _removeListener(key, entry);
-    });
+      isAsync: true,
+    )!;
   }
 
   ListenerDisposable onWithMeta<T>(
@@ -298,22 +475,15 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    if (sticky) {
-      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
-    }
-    final entry = _ListenerEntry(
-      callback,
+    return _registerListener(
+      key: key,
+      callback: callback,
       onError: onError,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
-    );
-
-    _addListener(key, entry);
-
-    return ListenerDisposable(() {
-      _removeListener(key, entry);
-    });
+      hasMetadata: true,
+    )!;
   }
 
   ListenerDisposable onAsyncWithMeta<T>(
@@ -324,23 +494,16 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    if (sticky) {
-      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => callback(v, m));
-    }
-    final entry = _ListenerEntry(
-      callback,
+    return _registerListener(
+      key: key,
+      callback: callback,
       onError: onError,
-      isAsync: true,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
-    );
-
-    _addListener(key, entry);
-
-    return ListenerDisposable(() {
-      _removeListener(key, entry);
-    });
+      isAsync: true,
+      hasMetadata: true,
+    )!;
   }
 
   void listenOnce<T>(
@@ -352,32 +515,15 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ListenerEntry? entry;
-    void wrapped(T value) {
-      if (entry != null) {
-        _removeListener(key, entry!);
-        entry = null;
-      }
-      callback(value);
-    }
-
-    final e1 = _ListenerEntry(
-      wrapped,
+    _registerOnceListener(
+      key: key,
+      callback: callback,
+      ref: ref,
       onError: onError,
+      sticky: sticky,
       priority: priority,
       where: where,
     );
-    entry = e1;
-    _listeners.putIfAbsent(key, () => []).add(e1);
-    if (sticky) {
-      _tryDeliverSticky<T>(key, where, (v) => wrapped(v));
-    }
-    ref.onDispose(() {
-      if (entry != null) {
-        _removeListener(key, entry!);
-        entry = null;
-      }
-    });
   }
 
   void listenOnceWithMeta<T>(
@@ -389,33 +535,16 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ListenerEntry? entry;
-    void wrapped(T value, BusMetadata metadata) {
-      if (entry != null) {
-        _removeListener(key, entry!);
-        entry = null;
-      }
-      callback(value, metadata);
-    }
-
-    final e1 = _ListenerEntry(
-      wrapped,
+    _registerOnceListener(
+      key: key,
+      callback: callback,
+      ref: ref,
       onError: onError,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
+      hasMetadata: true,
     );
-    entry = e1;
-    _listeners.putIfAbsent(key, () => []).add(e1);
-    if (sticky) {
-      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => wrapped(v, m));
-    }
-    ref.onDispose(() {
-      if (entry != null) {
-        _removeListener(key, entry!);
-        entry = null;
-      }
-    });
   }
 
   ListenerDisposable onOnce<T>(
@@ -426,32 +555,14 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ListenerEntry? entry;
-    void wrapped(T value) {
-      if (entry != null) {
-        _removeListener(key, entry!);
-        entry = null;
-      }
-      callback(value);
-    }
-
-    final e1 = _ListenerEntry(
-      wrapped,
+    return _registerOnceListener(
+      key: key,
+      callback: callback,
       onError: onError,
+      sticky: sticky,
       priority: priority,
       where: where,
-    );
-    entry = e1;
-    _listeners.putIfAbsent(key, () => []).add(e1);
-    if (sticky) {
-      _tryDeliverSticky<T>(key, where, (v) => wrapped(v));
-    }
-    return ListenerDisposable(() {
-      if (entry != null) {
-        _removeListener(key, entry!);
-        entry = null;
-      }
-    });
+    )!;
   }
 
   ListenerDisposable onOnceWithMeta<T>(
@@ -462,33 +573,15 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ListenerEntry? entry;
-    void wrapped(T value, BusMetadata metadata) {
-      if (entry != null) {
-        _removeListener(key, entry!);
-        entry = null;
-      }
-      callback(value, metadata);
-    }
-
-    final e1 = _ListenerEntry(
-      wrapped,
+    return _registerOnceListener(
+      key: key,
+      callback: callback,
       onError: onError,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
-    );
-    entry = e1;
-    _listeners.putIfAbsent(key, () => []).add(e1);
-    if (sticky) {
-      _tryDeliverStickyWithMeta<T>(key, where, (v, m) => wrapped(v, m));
-    }
-    return ListenerDisposable(() {
-      if (entry != null) {
-        _removeListener(key, entry!);
-        entry = null;
-      }
-    });
+      hasMetadata: true,
+    )!;
   }
 
   void _reportError(_ListenerEntry entry, Object error, StackTrace stack) {
@@ -509,7 +602,9 @@ class EventBusCore {
     final list = _listeners.putIfAbsent(key, () => []);
     final p = entry.priority;
     int i = 0;
-    while (i < list.length && list[i].priority >= p) { i++; }
+    while (i < list.length && list[i].priority >= p) {
+      i++;
+    }
     list.insert(i, entry);
   }
 
@@ -517,7 +612,9 @@ class EventBusCore {
     final list = _subEventListeners.putIfAbsent(subKey, () => []);
     final p = entry.priority;
     int i = 0;
-    while (i < list.length && list[i].priority >= p) { i++; }
+    while (i < list.length && list[i].priority >= p) {
+      i++;
+    }
     list.insert(i, entry);
   }
 
@@ -611,39 +708,7 @@ class EventBusCore {
   }
 
   void _fireSubEventsSync<T>(int parentKey, T value, BusMetadata metadata) {
-    final subKeys = _parentToSubEventKeys[parentKey];
-    if (subKeys == null || subKeys.isEmpty) return;
-
-    for (final subKey in List<int>.from(subKeys)) {
-      final subWhere = _subEventWhere[subKey];
-      if (subWhere == null) continue;
-
-      try {
-        if (!(subWhere as bool Function(T, BusMetadata))(value, metadata)) {
-          continue;
-        }
-      } catch (_) {
-        continue;
-      }
-
-      _subEventLastValues[subKey] = _EventCacheEntry(value, metadata);
-      _subEventBackfilledNoMatch.remove(subKey);
-      _appendToHistory(subKey, value, metadata);
-
-      final listeners = _subEventListeners[subKey];
-      if (listeners == null || listeners.isEmpty) continue;
-
-      _invokeListeners(listeners, value, metadata);
-
-      listeners.removeWhere((entry) => entry.isDisposed);
-      if (listeners.isEmpty) {
-        _subEventListeners.remove(subKey);
-        _subEventWhere.remove(subKey);
-        subKeys.remove(subKey);
-      }
-    }
-
-    if (subKeys.isEmpty) _parentToSubEventKeys.remove(parentKey);
+    unawaited(_fireSubEventsShared(parentKey, value, metadata));
   }
 
   Future<void> _fireSubEventsAsync<T>(
@@ -651,6 +716,15 @@ class EventBusCore {
     T value,
     BusMetadata metadata,
   ) async {
+    await _fireSubEventsShared(parentKey, value, metadata, collectAsync: true);
+  }
+
+  Future<void> _fireSubEventsShared<T>(
+    int parentKey,
+    T value,
+    BusMetadata metadata, {
+    bool collectAsync = false,
+  }) async {
     final subKeys = _parentToSubEventKeys[parentKey];
     if (subKeys == null || subKeys.isEmpty) return;
 
@@ -673,13 +747,17 @@ class EventBusCore {
       final listeners = _subEventListeners[subKey];
       if (listeners == null || listeners.isEmpty) continue;
 
-      final futures = _invokeListeners(
-        listeners,
-        value,
-        metadata,
-        collectAsync: true,
-      );
-      await Future.wait(futures);
+      if (collectAsync) {
+        final futures = _invokeListeners(
+          listeners,
+          value,
+          metadata,
+          collectAsync: true,
+        );
+        await Future.wait(futures);
+      } else {
+        _invokeListeners(listeners, value, metadata);
+      }
 
       listeners.removeWhere((entry) => entry.isDisposed);
       if (listeners.isEmpty) {
@@ -874,8 +952,7 @@ class EventBusCore {
 
   bool hasClients(int key) {
     final listeners = _listeners[key];
-    return listeners != null &&
-        listeners.any((entry) => !entry.isDisposed);
+    return listeners != null && listeners.any((entry) => !entry.isDisposed);
   }
 
   void _removeListener(int key, _ListenerEntry entry) {
@@ -1008,24 +1085,17 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    if (sticky) {
-      _tryDeliverSubEventSticky<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v) => callback(v),
-      );
-    }
-    final entry = _ListenerEntry(
-      callback,
+    _registerSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
+      ref: ref,
       onError: onError,
+      sticky: sticky,
       priority: priority,
       where: where,
     );
-    _addSubEventListener(subKey, entry);
-    ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
   void listenAsyncSubEvent<T>(
@@ -1040,25 +1110,18 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    if (sticky) {
-      _tryDeliverSubEventSticky<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v) => callback(v),
-      );
-    }
-    final entry = _ListenerEntry(
-      callback,
+    _registerSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
+      ref: ref,
       onError: onError,
-      isAsync: true,
+      sticky: sticky,
       priority: priority,
       where: where,
+      isAsync: true,
     );
-    _addSubEventListener(subKey, entry);
-    ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
   void listenSubEventWithMeta<T>(
@@ -1073,25 +1136,18 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v, m) => callback(v, m),
-      );
-    }
-    final entry = _ListenerEntry(
-      callback,
+    _registerSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
+      ref: ref,
       onError: onError,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
+      hasMetadata: true,
     );
-    _addSubEventListener(subKey, entry);
-    ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
   void listenAsyncSubEventWithMeta<T>(
@@ -1106,26 +1162,19 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v, m) => callback(v, m),
-      );
-    }
-    final entry = _ListenerEntry(
-      callback,
+    _registerSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
+      ref: ref,
       onError: onError,
-      isAsync: true,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
+      isAsync: true,
+      hasMetadata: true,
     );
-    _addSubEventListener(subKey, entry);
-    ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
   ListenerDisposable onSubEvent<T>(
@@ -1138,24 +1187,16 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    if (sticky) {
-      _tryDeliverSubEventSticky<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v) => callback(v),
-      );
-    }
-    final entry = _ListenerEntry(
-      callback,
+    return _registerSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
       onError: onError,
+      sticky: sticky,
       priority: priority,
       where: where,
-    );
-    _addSubEventListener(subKey, entry);
-    return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
+    )!;
   }
 
   ListenerDisposable onAsyncSubEvent<T>(
@@ -1168,25 +1209,17 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    if (sticky) {
-      _tryDeliverSubEventSticky<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v) => callback(v),
-      );
-    }
-    final entry = _ListenerEntry(
-      callback,
+    return _registerSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
       onError: onError,
-      isAsync: true,
+      sticky: sticky,
       priority: priority,
       where: where,
-    );
-    _addSubEventListener(subKey, entry);
-    return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
+      isAsync: true,
+    )!;
   }
 
   ListenerDisposable onSubEventWithMeta<T>(
@@ -1199,25 +1232,17 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v, m) => callback(v, m),
-      );
-    }
-    final entry = _ListenerEntry(
-      callback,
+    return _registerSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
       onError: onError,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
-    );
-    _addSubEventListener(subKey, entry);
-    return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
+      hasMetadata: true,
+    )!;
   }
 
   ListenerDisposable onAsyncSubEventWithMeta<T>(
@@ -1230,26 +1255,18 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v, m) => callback(v, m),
-      );
-    }
-    final entry = _ListenerEntry(
-      callback,
+    return _registerSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
       onError: onError,
-      isAsync: true,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
-    );
-    _addSubEventListener(subKey, entry);
-    return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
+      isAsync: true,
+      hasMetadata: true,
+    )!;
   }
 
   void listenOnceSubEvent<T>(
@@ -1263,39 +1280,17 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    _ListenerEntry? entry;
-    void wrapped(T value) {
-      if (entry != null) {
-        _removeSubEventListener(subKey, entry!);
-        entry = null;
-      }
-      callback(value);
-    }
-
-    final e1 = _ListenerEntry(
-      wrapped,
+    _registerOnceSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
+      ref: ref,
       onError: onError,
+      sticky: sticky,
       priority: priority,
       where: where,
     );
-    entry = e1;
-    _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
-    if (sticky) {
-      _tryDeliverSubEventSticky<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v) => wrapped(v),
-      );
-    }
-    ref.onDispose(() {
-      if (entry != null) {
-        _removeSubEventListener(subKey, entry!);
-        entry = null;
-      }
-    });
   }
 
   void listenOnceSubEventWithMeta<T>(
@@ -1309,40 +1304,18 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    _ListenerEntry? entry;
-    void wrapped(T value, BusMetadata metadata) {
-      if (entry != null) {
-        _removeSubEventListener(subKey, entry!);
-        entry = null;
-      }
-      callback(value, metadata);
-    }
-
-    final e1 = _ListenerEntry(
-      wrapped,
+    _registerOnceSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
+      ref: ref,
       onError: onError,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
+      hasMetadata: true,
     );
-    entry = e1;
-    _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
-    if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v, m) => wrapped(v, m),
-      );
-    }
-    ref.onDispose(() {
-      if (entry != null) {
-        _removeSubEventListener(subKey, entry!);
-        entry = null;
-      }
-    });
   }
 
   ListenerDisposable onOnceSubEvent<T>(
@@ -1355,39 +1328,16 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    _ListenerEntry? entry;
-    void wrapped(T value) {
-      if (entry != null) {
-        _removeSubEventListener(subKey, entry!);
-        entry = null;
-      }
-      callback(value);
-    }
-
-    final e1 = _ListenerEntry(
-      wrapped,
+    return _registerOnceSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
       onError: onError,
+      sticky: sticky,
       priority: priority,
       where: where,
-    );
-    entry = e1;
-    _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
-    if (sticky) {
-      _tryDeliverSubEventSticky<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v) => wrapped(v),
-      );
-    }
-    return ListenerDisposable(() {
-      if (entry != null) {
-        _removeSubEventListener(subKey, entry!);
-        entry = null;
-      }
-    });
+    )!;
   }
 
   ListenerDisposable onOnceSubEventWithMeta<T>(
@@ -1400,40 +1350,17 @@ class EventBusCore {
     int priority = 0,
     ListenerWhere<T>? where,
   }) {
-    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-    _ListenerEntry? entry;
-    void wrapped(T value, BusMetadata metadata) {
-      if (entry != null) {
-        _removeSubEventListener(subKey, entry!);
-        entry = null;
-      }
-      callback(value, metadata);
-    }
-
-    final e1 = _ListenerEntry(
-      wrapped,
+    return _registerOnceSubEventListener(
+      subKey: subKey,
+      parentKey: parentKey,
+      subEventWhere: subEventWhere,
+      callback: callback,
       onError: onError,
+      sticky: sticky,
       priority: priority,
-      hasMetadata: true,
       where: where,
-    );
-    entry = e1;
-    _subEventListeners.putIfAbsent(subKey, () => []).add(e1);
-    if (sticky) {
-      _tryDeliverSubEventStickyWithMeta<T>(
-        subKey,
-        parentKey,
-        subEventWhere,
-        where,
-        (v, m) => wrapped(v, m),
-      );
-    }
-    return ListenerDisposable(() {
-      if (entry != null) {
-        _removeSubEventListener(subKey, entry!);
-        entry = null;
-      }
-    });
+      hasMetadata: true,
+    )!;
   }
 
   Future<T> waitFor<T>(
@@ -1656,8 +1583,7 @@ class EventBusCore {
 
   bool subEventHasClients(int subKey) {
     final listeners = _subEventListeners[subKey];
-    return listeners != null &&
-        listeners.any((entry) => !entry.isDisposed);
+    return listeners != null && listeners.any((entry) => !entry.isDisposed);
   }
 
   void _removeSubEventListener(int subKey, _ListenerEntry entry) {

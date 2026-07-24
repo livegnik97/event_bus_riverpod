@@ -1,6 +1,6 @@
 name: event_bus_riverpod
 description: "Type-safe event bus with Riverpod integration for Flutter."
-version: 2.9.3
+version: 3.2.6
 repository: https://github.com/livegnik97/event_bus_riverpod.git
 homepage: https://github.com/livegnik97/event_bus_riverpod
 

@@ -1,4 +1,4 @@
-## 3.0.0
+## 3.2.6
 
 * **16 — SubEvents**: `SubEventIdentifier.subEventName` renamed to `eventName` for consistency with the new `EventBusIdentifierBase<T>` they both extend. **Breaking change**.
 * **20 — Global API**: use the event bus from anywhere without Riverpod — plain Dart classes, services, or repositories. `EventBusGlobal.event()` and `EventBusGlobal.subEvent()` work with the same singleton bus as `ref.event()`, so emits and listeners are shared across both worlds.
@@ -14,9 +14,8 @@
   * Fixed `setHistorySize` being called on every `emit()` and `history` read — now no-op if the size is already set.
   * Fixed `EventBusBuilder` not passing `sticky` to `listenManually` on re-subscriptions, causing the `where` filter to be ignored for sticky delivery.
   * Fixed `EventBusCore.waitFor` and friends missing a default timeout — now consistent with the abstract class (30s default).
-  * Removed unused `autoDispose` parameter from all `listen`/`listenAsync`/`listenWithMeta`/`listenAsyncWithMeta` methods in `EventBusCore` and their subEvent counterparts — always disposes on `ref.onDispose`.
-  * Removed unnecessary `List.from()` defensive copy in `hasClients` and `subEventHasClients` — Dart is single-threaded so copying before `.any()` is dead weight.
-  * Listener lists are now maintained in descending priority order via `_addListener`/`_addSubEventListener` helpers — eliminates O(n) `.every()` check and O(n log n) sort on every emit. Registration becomes O(n) (cold path), emit becomes simpler (hot path).
+  * Removed unused `autoDispose` parameter from `listen()` and friends — always disposes on `ref.onDispose` as there was no way to manually dispose without the return value.
+  * Fixed `listenOnce()`/`onOnce()` not respecting listener `priority` ordering — now runs in correct order alongside regular listeners.
 
 ## 2.9.3
 
