@@ -54,6 +54,6 @@ class EventBusGlobal {
   ) {
     final bus = EventBusSingleton.getInstance().core;
     bus.setLogCallback(callback);
-    return ListenerDisposable(() => bus.setLogCallback(null));
+    return ListenerDisposable(() => bus.removeLogCallback(callback));
   }
 }

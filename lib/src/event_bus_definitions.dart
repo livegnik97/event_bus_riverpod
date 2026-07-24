@@ -24,7 +24,7 @@ class EventBusCore {
   final Set<int> _subEventBackfilledNoMatch = {};
   final Map<int, List<ValueWithMeta<Object?>>> _histories = {};
   final Map<int, int> _historySizes = {};
-  void Function(LogEntry<Object?> entry)? _logCallback;
+  final List<void Function(LogEntry<Object?> entry)> _logCallbacks = [];
   final Map<int, String> _eventNames = {};
 
   BusMetadata _buildMetadata(String? source, dynamic extraData) {
@@ -674,12 +674,14 @@ class EventBusCore {
   }
 
   void _tryLog<T>(int key, T value, BusMetadata metadata) {
-    final cb = _logCallback;
     final name = _eventNames[key];
-    if (cb == null || name == null) return;
-    try {
-      cb(LogEntry<Object?>(name, value, metadata));
-    } catch (_) {}
+    if (_logCallbacks.isEmpty || name == null) return;
+    final entry = LogEntry<Object?>(name, value, metadata);
+    for (final cb in List.from(_logCallbacks)) {
+      try {
+        cb(entry);
+      } catch (_) {}
+    }
   }
 
   void _emitThroughMiddleware<T>(
@@ -915,8 +917,12 @@ class EventBusCore {
     _eventNames.putIfAbsent(key, () => name);
   }
 
-  void setLogCallback(void Function(LogEntry<Object?> entry)? callback) {
-    _logCallback = callback;
+  void setLogCallback(void Function(LogEntry<Object?> entry) callback) {
+    _logCallbacks.add(callback);
+  }
+
+  void removeLogCallback(void Function(LogEntry<Object?> entry) callback) {
+    _logCallbacks.remove(callback);
   }
 
   void ensureSubEventRegistered(
@@ -939,6 +945,7 @@ class EventBusCore {
     _histories.clear();
     _historySizes.clear();
     _eventNames.clear();
+    _logCallbacks.clear();
   }
 
   // ── SubEvent listener methods ──

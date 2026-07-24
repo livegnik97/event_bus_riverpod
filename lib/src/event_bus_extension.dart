@@ -48,8 +48,9 @@ extension EventBusForRef on Ref {
   ) {
     final bus = read(eventBusProvider);
     bus.setLogCallback(callback);
-    onDispose(() => bus.setLogCallback(null));
-    return ListenerDisposable(() => bus.setLogCallback(null));
+    final disposable = ListenerDisposable(() => bus.removeLogCallback(callback));
+    onDispose(() => disposable.dispose());
+    return disposable;
   }
 }
 
@@ -101,6 +102,6 @@ extension EventBusForWidgetRef on WidgetRef {
   ) {
     final bus = read(eventBusProvider);
     bus.setLogCallback(callback);
-    return ListenerDisposable(() => bus.setLogCallback(null));
+    return ListenerDisposable(() => bus.removeLogCallback(callback));
   }
 }

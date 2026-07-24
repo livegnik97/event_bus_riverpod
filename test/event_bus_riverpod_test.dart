@@ -9,6 +9,10 @@ import 'package:event_bus_riverpod/src/event_bus_singleton.dart';
 import 'event_bus_constants.dart';
 
 void main() {
+  tearDown(() {
+    EventBusSingleton.reset();
+  });
+
   group('EventBusForRef extension with EventBusConstants', () {
     test('listen and emit via extension', () {
       final captured = <int>[];

@@ -1187,7 +1187,7 @@ print(ref.subEvent(evens).history.length);     // 5  (only evens)
 
 ### 19. Logger interceptor
 
-Register a global callback that fires for **every event emission**, before middlewares are applied. Useful for logging, analytics, or debugging.
+Register one or more global callbacks that fire for **every event emission**, before middlewares are applied. Useful for logging, analytics, or debugging.
 
 ```dart
 // Inside a provider — auto-disposed when the provider is invalidated
@@ -1205,9 +1205,21 @@ final disposable = ref.logEvents((entry) {
 // later: disposable.dispose();
 ```
 
+**Multiple loggers**: each call to `logEvents()` adds a new callback to the stack. Multiple providers, widgets, and the global API can all log independently without overwriting each other. Each callback is cleaned up individually when its `ListenerDisposable` is disposed or its `Ref` is invalidated.
+
+```dart
+// Both loggers coexist — neither overwrites the other
+ref.logEvents((entry) {
+  analytics.track(entry.eventName, {'value': entry.value});
+});
+ref.logEvents((entry) {
+  log('[${entry.eventName}] ${entry.value}');
+});
+```
+
 #### What gets logged
 
-Every call to `emit()` / `emitAsync()` fires the callback with a `LogEntry<Object?>` containing:
+Every call to `emit()` / `emitAsync()` fires each registered callback with a `LogEntry<Object?>` containing:
 - `eventName` — the name of the `EventBusIdentifier`
 - `value` — the raw value before middlewares
 - `metadata` — the `BusMetadata` (timestamp, source, extraData)
@@ -1216,7 +1228,7 @@ The callback runs **before** middleware, so you always see the original value ev
 
 #### Error isolation
 
-If the callback throws, the error is silently caught — it never crashes the bus or affects listeners.
+If a callback throws, the error is silently caught — it never crashes the bus, affects listeners, or stops other log callbacks from firing.
 
 #### When used with SubEvents
 

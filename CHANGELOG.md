@@ -3,6 +3,7 @@
 * **16 — SubEvents**: `SubEventIdentifier.subEventName` renamed to `eventName` for consistency with the new `EventBusIdentifierBase<T>` they both extend. **Breaking change**.
 * **20 — Global API**: use the event bus from anywhere without Riverpod — plain Dart classes, services, or repositories. `EventBusGlobal.event()` and `EventBusGlobal.subEvent()` work with the same singleton bus as `ref.event()`, so emits and listeners are shared across both worlds.
 * **21 — EventBusBuilder**: new widget that rebuilds whenever an event or subEvent fires. Accepts both identifier types polymorphically. No subscription management needed — handles `initState`, `dispose`, and re-subscription on changes automatically.
+* **19 — Logger interceptor**: `logEvents()` now supports **multiple independent callbacks** — each registration adds to a stack instead of replacing the previous one. Providers, widgets, and the global API can all log concurrently without overwriting each other. Each logger is cleaned up individually on dispose.
 * **22 — `waitFor()`**: await the next emission as a `Future<T>` — ideal for navigation after login, waiting for a specific status, or any one-shot coordination. Available on events, subEvents, and the global API. Built-in 30-second timeout prevents hanging futures; supports `where` filter for conditional matching.
 
 ## 2.9.3

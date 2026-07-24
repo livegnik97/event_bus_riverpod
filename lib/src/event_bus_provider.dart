@@ -10,11 +10,5 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 part 'event_bus_definitions.dart';
 
 final eventBusProvider = Provider<EventBusCore>((ref) {
-  final bus = EventBusSingleton.getInstance().core;
-
-  ref.onDispose(() {
-    bus.clearAll();
-  });
-
-  return bus;
+  return EventBusSingleton.getInstance().core;
 });
