@@ -872,21 +872,19 @@ class EventBusCore {
 
   T? lastValue<T>(int key) => _lastValues[key]?.value as T?;
 
-  T? lastSubEventValue<T>(int subKey) =>
-      _subEventLastValues[subKey]?.value as T?;
+  T? subEventCached<T>(int subKey) => _subEventLastValues[subKey]?.value as T?;
 
-  T? subEventCached<T>(
+  /// Registers a subEvent and backfills its sticky cache from the parent.
+  ///
+  /// Called eagerly from [SubEventAction] constructors so that [lastValue]
+  /// and other pure getters work without side effects.
+  void initSubEvent<T>(
     int subKey,
     int parentKey,
     ListenerWhere<T> subEventWhere,
   ) {
-    if (!_subEventLastValues.containsKey(subKey)) {
-      if (!_subEventWhere.containsKey(subKey)) {
-        _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
-      }
-      _backfillSubEventStickyFromParent<T>(subKey, parentKey, subEventWhere);
-    }
-    return _subEventLastValues[subKey]?.value as T?;
+    _ensureSubEventRegistered(subKey, parentKey, subEventWhere);
+    _backfillSubEventStickyFromParent<T>(subKey, parentKey, subEventWhere);
   }
 
   void clearEvent(int key) => _listeners.remove(key);
@@ -1428,32 +1426,21 @@ class EventBusCore {
     });
   }
 
-  Future<T> waitFor<T>(
-    int key, {
-    Duration? timeout,
-    ListenerWhere<T>? where,
-  }) {
+  Future<T> waitFor<T>(int key, {Duration? timeout, ListenerWhere<T>? where}) {
     final completer = Completer<T>();
     ListenerDisposable? disposable;
 
-    disposable = onOnce<T>(
-      key,
-      (value) {
-        disposable?.dispose();
-        if (!completer.isCompleted) completer.complete(value);
-      },
-      where: where,
-    );
+    disposable = onOnce<T>(key, (value) {
+      disposable?.dispose();
+      if (!completer.isCompleted) completer.complete(value);
+    }, where: where);
 
     if (timeout != null) {
       Future.delayed(timeout, () {
         disposable?.dispose();
         if (!completer.isCompleted) {
           completer.completeError(
-            TimeoutException(
-              'Event did not emit within $timeout',
-              timeout,
-            ),
+            TimeoutException('Event did not emit within $timeout', timeout),
           );
         }
       });
@@ -1472,26 +1459,17 @@ class EventBusCore {
     final completer = Completer<T>();
     ListenerDisposable? disposable;
 
-    disposable = onOnceSubEvent<T>(
-      subKey,
-      parentKey,
-      subEventWhere,
-      (value) {
-        disposable?.dispose();
-        if (!completer.isCompleted) completer.complete(value);
-      },
-      where: where,
-    );
+    disposable = onOnceSubEvent<T>(subKey, parentKey, subEventWhere, (value) {
+      disposable?.dispose();
+      if (!completer.isCompleted) completer.complete(value);
+    }, where: where);
 
     if (timeout != null) {
       Future.delayed(timeout, () {
         disposable?.dispose();
         if (!completer.isCompleted) {
           completer.completeError(
-            TimeoutException(
-              'SubEvent did not emit within $timeout',
-              timeout,
-            ),
+            TimeoutException('SubEvent did not emit within $timeout', timeout),
           );
         }
       });

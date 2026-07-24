@@ -268,20 +268,11 @@ mixin SubEventActionMixin<T> on SubEventAction<T> {
   }
 
   @override
-  T? get lastValue => eventBus.subEventCached<T>(
-    identifier.key,
-    identifier.parentEvent.key,
-    identifier.where,
-  );
+  T? get lastValue => eventBus.subEventCached<T>(identifier.key);
 
   @override
   List<ValueWithMeta<T>> get history {
     eventBus.setHistorySize(identifier.key, identifier.historySize);
-    eventBus.ensureSubEventRegistered(
-      identifier.key,
-      identifier.parentEvent.key,
-      identifier.where,
-    );
     return eventBus.history<T>(identifier.key);
   }
 
@@ -329,10 +320,7 @@ mixin SubEventActionMixin<T> on SubEventAction<T> {
   }
 
   @override
-  Future<T> waitFor({
-    Duration? timeout,
-    ListenerWhere<T>? where,
-  }) {
+  Future<T> waitFor({Duration? timeout, ListenerWhere<T>? where}) {
     return eventBus.waitForSubEvent(
       identifier.key,
       identifier.parentEvent.key,
@@ -351,6 +339,11 @@ class SubEventActionForRef<T> extends SubEventAction<T>
 
   SubEventActionForRef({required super.identifier, required this.ref}) {
     eventBus.setHistorySize(identifier.key, identifier.historySize);
+    eventBus.initSubEvent(
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+    );
   }
 
   @override
@@ -494,6 +487,11 @@ class SubEventActionForWidgetRef<T> extends SubEventAction<T>
 
   SubEventActionForWidgetRef({required super.identifier, required this.ref}) {
     eventBus.setHistorySize(identifier.key, identifier.historySize);
+    eventBus.initSubEvent(
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+    );
   }
 
   @override

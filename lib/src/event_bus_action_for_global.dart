@@ -19,6 +19,11 @@ class SubEventActionForGlobal<T> extends SubEventAction<T>
     with SubEventActionMixin<T> {
   SubEventActionForGlobal({required super.identifier}) {
     eventBus.setHistorySize(identifier.key, identifier.historySize);
+    eventBus.initSubEvent(
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+    );
   }
 
   @override
