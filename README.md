@@ -1466,11 +1466,25 @@ class PaymentService {
 }
 ```
 
+**Scenario: wait for an emission with metadata**
+
+Use `waitForWithMeta` when you also need the `BusMetadata` (timestamp, source, extraData):
+
+```dart
+final (user, meta) = await ref.event(onUserLogin).waitForWithMeta(
+  timeout: Duration(seconds: 10),
+  where: (u, _) => u.isVerified,
+);
+print('Logged in at ${meta.timestamp}');
+print('Source: ${meta.source}');
+```
+
 **Behaviour reference:**
 
 | Aspect | Behaviour |
 |--------|-----------|
 | Returns | `Future<T>` — completes with the value of the **first** emission after the call |
+| Meta variant | `waitForWithMeta()` returns `Future<(T, BusMetadata)>` — available on events, subEvents, and the global API |
 | Timeout | Defaults to **30 seconds**; pass `null` to wait indefinitely (not recommended) |
 | Where | Optional per-call filter — same signature as the existing `where` parameter on listen methods |
 | Sticky | **Not supported** — `waitFor` explicitly waits for a *future* emission. For the cached value, use `lastValue`. |

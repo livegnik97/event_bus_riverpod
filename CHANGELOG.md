@@ -12,6 +12,7 @@
   * Fixed `_tryDeliverSticky` and related methods silently swallowing all errors — now logged in debug mode, consistent with `_invokeListeners`.
   * Fixed `_removeSubEventListener` and `clearSubEvent` scanning all parent events to find a subKey — O(n) → O(1) via a reverse `_subKeyToParentKey` map.
   * Fixed `setHistorySize` being called on every `emit()` and `history` read — now no-op if the size is already set.
+  * Fixed `EventBusBuilder` not passing `sticky` to `listenManually` on re-subscriptions, causing the `where` filter to be ignored for sticky delivery.
 
 ## 2.9.3
 

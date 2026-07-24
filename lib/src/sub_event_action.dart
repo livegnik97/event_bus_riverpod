@@ -129,6 +129,22 @@ abstract class SubEventAction<T> {
     Duration? timeout = const Duration(seconds: 30),
     ListenerWhere<T>? where,
   });
+
+  /// Like [waitFor] but also returns the [BusMetadata] of the emission.
+  ///
+  /// ```dart
+  /// final (count, meta) = await ref
+  ///     .subEvent(onHighCount)
+  ///     .waitForWithMeta(timeout: Duration(seconds: 5));
+  /// print(meta.timestamp);
+  /// ```
+  ///
+  /// Default [timeout] is 30 seconds. Pass `timeout: null` to wait
+  /// indefinitely.
+  Future<(T, BusMetadata)> waitForWithMeta({
+    Duration? timeout = const Duration(seconds: 30),
+    ListenerWhere<T>? where,
+  });
 }
 
 /// Shared implementation of [SubEventAction] methods common to both [Ref] and
@@ -322,6 +338,20 @@ mixin SubEventActionMixin<T> on SubEventAction<T> {
   @override
   Future<T> waitFor({Duration? timeout, ListenerWhere<T>? where}) {
     return eventBus.waitForSubEvent(
+      identifier.key,
+      identifier.parentEvent.key,
+      identifier.where,
+      timeout: timeout,
+      where: where,
+    );
+  }
+
+  @override
+  Future<(T, BusMetadata)> waitForWithMeta({
+    Duration? timeout,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.waitForSubEventWithMeta(
       identifier.key,
       identifier.parentEvent.key,
       identifier.where,

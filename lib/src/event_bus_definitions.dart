@@ -1497,6 +1497,71 @@ class EventBusCore {
     return completer.future;
   }
 
+  Future<(T, BusMetadata)> waitForWithMeta<T>(
+    int key, {
+    Duration? timeout,
+    ListenerWhere<T>? where,
+  }) {
+    final completer = Completer<(T, BusMetadata)>();
+    ListenerDisposable? disposable;
+
+    disposable = onOnceWithMeta<T>(key, (value, meta) {
+      disposable?.dispose();
+      if (!completer.isCompleted) completer.complete((value, meta));
+    }, where: where);
+
+    if (timeout != null) {
+      Future.delayed(timeout, () {
+        disposable?.dispose();
+        if (!completer.isCompleted) {
+          completer.completeError(
+            TimeoutException('Event did not emit within $timeout', timeout),
+          );
+        }
+      });
+    }
+
+    return completer.future;
+  }
+
+  Future<(T, BusMetadata)> waitForSubEventWithMeta<T>(
+    int subKey,
+    int parentKey,
+    ListenerWhere<T> subEventWhere, {
+    Duration? timeout,
+    ListenerWhere<T>? where,
+  }) {
+    final completer = Completer<(T, BusMetadata)>();
+    ListenerDisposable? disposable;
+
+    disposable = onOnceSubEventWithMeta<T>(
+      subKey,
+      parentKey,
+      subEventWhere,
+      (value, meta) {
+        disposable?.dispose();
+        if (!completer.isCompleted) completer.complete((value, meta));
+      },
+      where: where,
+    );
+
+    if (timeout != null) {
+      Future.delayed(timeout, () {
+        disposable?.dispose();
+        if (!completer.isCompleted) {
+          completer.completeError(
+            TimeoutException(
+              'SubEvent did not emit within $timeout',
+              timeout,
+            ),
+          );
+        }
+      });
+    }
+
+    return completer.future;
+  }
+
   // ── SubEvent stream methods ──
 
   Stream<T> streamSubEvent<T>(

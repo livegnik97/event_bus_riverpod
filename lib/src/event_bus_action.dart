@@ -392,6 +392,23 @@ abstract class EventBusAction<T> {
     Duration? timeout = const Duration(seconds: 30),
     ListenerWhere<T>? where,
   });
+
+  /// Like [waitFor] but also returns the [BusMetadata] of the emission.
+  ///
+  /// ```dart
+  /// final (user, meta) = await ref.event(onUserLogin).waitForWithMeta(
+  ///   timeout: Duration(seconds: 5),
+  ///   where: (u, _) => u.isVerified,
+  /// );
+  /// print(meta.timestamp); // 2026-07-02 15:30:00.123
+  /// ```
+  ///
+  /// Default [timeout] is 30 seconds. Pass `timeout: null` to wait
+  /// indefinitely.
+  Future<(T, BusMetadata)> waitForWithMeta({
+    Duration? timeout = const Duration(seconds: 30),
+    ListenerWhere<T>? where,
+  });
 }
 
 /// Shared implementation of [EventBusAction] methods common to both [Ref] and
@@ -601,6 +618,18 @@ mixin EventBusActionMixin<T> on EventBusAction<T> {
     ListenerWhere<T>? where,
   }) {
     return eventBus.waitFor(
+      event.key,
+      timeout: timeout,
+      where: where,
+    );
+  }
+
+  @override
+  Future<(T, BusMetadata)> waitForWithMeta({
+    Duration? timeout,
+    ListenerWhere<T>? where,
+  }) {
+    return eventBus.waitForWithMeta(
       event.key,
       timeout: timeout,
       where: where,

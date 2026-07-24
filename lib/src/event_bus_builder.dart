@@ -45,12 +45,14 @@ class EventBusBuilder<T> extends ConsumerStatefulWidget {
 class _EventBusBuilderState<T> extends ConsumerState<EventBusBuilder<T>> {
   T? _value;
   ListenerDisposable? _disposable;
+  bool _initializing = true;
 
   @override
   void initState() {
     super.initState();
     _tryDeliverInitial();
     _subscribe();
+    _initializing = false;
   }
 
   T? _tryGetSticky() {
@@ -65,7 +67,7 @@ class _EventBusBuilderState<T> extends ConsumerState<EventBusBuilder<T>> {
   }
 
   void _tryDeliverInitial() {
-    if (widget.sticky) {
+    if (widget.sticky && widget.where == null) {
       final stickyValue = _tryGetSticky();
       if (stickyValue != null) {
         _value = stickyValue;
@@ -78,7 +80,11 @@ class _EventBusBuilderState<T> extends ConsumerState<EventBusBuilder<T>> {
   }
 
   void _onValue(T value) {
-    if (mounted) setState(() => _value = value);
+    if (_initializing) {
+      _value = value;
+    } else {
+      if (mounted) setState(() => _value = value);
+    }
   }
 
   void _subscribe() {
@@ -88,6 +94,7 @@ class _EventBusBuilderState<T> extends ConsumerState<EventBusBuilder<T>> {
           .subEvent(widget.event as SubEventIdentifier<T>)
           .listenManually(
             _onValue,
+            sticky: widget.sticky,
             where: widget.where,
             priority: widget.priority,
           );
@@ -96,6 +103,7 @@ class _EventBusBuilderState<T> extends ConsumerState<EventBusBuilder<T>> {
           .event(widget.event as EventBusIdentifier<T>)
           .listenManually(
             _onValue,
+            sticky: widget.sticky,
             where: widget.where,
             priority: widget.priority,
           );
