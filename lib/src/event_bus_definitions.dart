@@ -147,7 +147,7 @@ class EventBusCore {
       where: where,
     );
 
-    _listeners.putIfAbsent(key, () => []).add(entry);
+    _addListener(key, entry);
 
     ref.onDispose(() {
       _removeListener(key, entry);
@@ -175,7 +175,7 @@ class EventBusCore {
       where: where,
     );
 
-    _listeners.putIfAbsent(key, () => []).add(entry);
+    _addListener(key, entry);
 
     ref.onDispose(() {
       _removeListener(key, entry);
@@ -203,7 +203,7 @@ class EventBusCore {
       where: where,
     );
 
-    _listeners.putIfAbsent(key, () => []).add(entry);
+    _addListener(key, entry);
 
     ref.onDispose(() {
       _removeListener(key, entry);
@@ -232,7 +232,7 @@ class EventBusCore {
       where: where,
     );
 
-    _listeners.putIfAbsent(key, () => []).add(entry);
+    _addListener(key, entry);
 
     ref.onDispose(() {
       _removeListener(key, entry);
@@ -257,7 +257,7 @@ class EventBusCore {
       where: where,
     );
 
-    _listeners.putIfAbsent(key, () => []).add(entry);
+    _addListener(key, entry);
 
     return ListenerDisposable(() {
       _removeListener(key, entry);
@@ -283,7 +283,7 @@ class EventBusCore {
       where: where,
     );
 
-    _listeners.putIfAbsent(key, () => []).add(entry);
+    _addListener(key, entry);
 
     return ListenerDisposable(() {
       _removeListener(key, entry);
@@ -309,7 +309,7 @@ class EventBusCore {
       where: where,
     );
 
-    _listeners.putIfAbsent(key, () => []).add(entry);
+    _addListener(key, entry);
 
     return ListenerDisposable(() {
       _removeListener(key, entry);
@@ -336,7 +336,7 @@ class EventBusCore {
       where: where,
     );
 
-    _listeners.putIfAbsent(key, () => []).add(entry);
+    _addListener(key, entry);
 
     return ListenerDisposable(() {
       _removeListener(key, entry);
@@ -505,6 +505,22 @@ class EventBusCore {
     }
   }
 
+  void _addListener(int key, _ListenerEntry entry) {
+    final list = _listeners.putIfAbsent(key, () => []);
+    final p = entry.priority;
+    int i = 0;
+    while (i < list.length && list[i].priority >= p) { i++; }
+    list.insert(i, entry);
+  }
+
+  void _addSubEventListener(int subKey, _ListenerEntry entry) {
+    final list = _subEventListeners.putIfAbsent(subKey, () => []);
+    final p = entry.priority;
+    int i = 0;
+    while (i < list.length && list[i].priority >= p) { i++; }
+    list.insert(i, entry);
+  }
+
   List<Future<void>> _invokeListeners<T>(
     List<_ListenerEntry> listeners,
     T value,
@@ -514,13 +530,6 @@ class EventBusCore {
     if (listeners.isEmpty) return [];
 
     final sorted = List<_ListenerEntry>.from(listeners);
-    if (listeners.length > 1) {
-      final firstPriority = listeners.first.priority;
-      final allSame = listeners.every((e) => e.priority == firstPriority);
-      if (!allSame) {
-        sorted.sort((a, b) => b.priority.compareTo(a.priority));
-      }
-    }
 
     final futures = <Future<void>>[];
 
@@ -866,7 +875,7 @@ class EventBusCore {
   bool hasClients(int key) {
     final listeners = _listeners[key];
     return listeners != null &&
-        List.from(listeners).any((entry) => !entry.isDisposed);
+        listeners.any((entry) => !entry.isDisposed);
   }
 
   void _removeListener(int key, _ListenerEntry entry) {
@@ -1015,7 +1024,7 @@ class EventBusCore {
       priority: priority,
       where: where,
     );
-    _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
+    _addSubEventListener(subKey, entry);
     ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
@@ -1048,7 +1057,7 @@ class EventBusCore {
       priority: priority,
       where: where,
     );
-    _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
+    _addSubEventListener(subKey, entry);
     ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
@@ -1081,7 +1090,7 @@ class EventBusCore {
       hasMetadata: true,
       where: where,
     );
-    _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
+    _addSubEventListener(subKey, entry);
     ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
@@ -1115,7 +1124,7 @@ class EventBusCore {
       hasMetadata: true,
       where: where,
     );
-    _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
+    _addSubEventListener(subKey, entry);
     ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
@@ -1145,7 +1154,7 @@ class EventBusCore {
       priority: priority,
       where: where,
     );
-    _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
+    _addSubEventListener(subKey, entry);
     return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
   }
 
@@ -1176,7 +1185,7 @@ class EventBusCore {
       priority: priority,
       where: where,
     );
-    _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
+    _addSubEventListener(subKey, entry);
     return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
   }
 
@@ -1207,7 +1216,7 @@ class EventBusCore {
       hasMetadata: true,
       where: where,
     );
-    _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
+    _addSubEventListener(subKey, entry);
     return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
   }
 
@@ -1239,7 +1248,7 @@ class EventBusCore {
       hasMetadata: true,
       where: where,
     );
-    _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
+    _addSubEventListener(subKey, entry);
     return ListenerDisposable(() => _removeSubEventListener(subKey, entry));
   }
 
@@ -1648,7 +1657,7 @@ class EventBusCore {
   bool subEventHasClients(int subKey) {
     final listeners = _subEventListeners[subKey];
     return listeners != null &&
-        List.from(listeners).any((entry) => !entry.isDisposed);
+        listeners.any((entry) => !entry.isDisposed);
   }
 
   void _removeSubEventListener(int subKey, _ListenerEntry entry) {

@@ -15,6 +15,8 @@
   * Fixed `EventBusBuilder` not passing `sticky` to `listenManually` on re-subscriptions, causing the `where` filter to be ignored for sticky delivery.
   * Fixed `EventBusCore.waitFor` and friends missing a default timeout — now consistent with the abstract class (30s default).
   * Removed unused `autoDispose` parameter from all `listen`/`listenAsync`/`listenWithMeta`/`listenAsyncWithMeta` methods in `EventBusCore` and their subEvent counterparts — always disposes on `ref.onDispose`.
+  * Removed unnecessary `List.from()` defensive copy in `hasClients` and `subEventHasClients` — Dart is single-threaded so copying before `.any()` is dead weight.
+  * Listener lists are now maintained in descending priority order via `_addListener`/`_addSubEventListener` helpers — eliminates O(n) `.every()` check and O(n log n) sort on every emit. Registration becomes O(n) (cold path), emit becomes simpler (hot path).
 
 ## 2.9.3
 
