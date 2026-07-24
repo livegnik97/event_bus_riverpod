@@ -1445,7 +1445,11 @@ class EventBusCore {
     });
   }
 
-  Future<T> waitFor<T>(int key, {Duration? timeout, ListenerWhere<T>? where}) {
+  Future<T> waitFor<T>(
+    int key, {
+    Duration? timeout = const Duration(seconds: 30),
+    ListenerWhere<T>? where,
+  }) {
     final completer = Completer<T>();
     ListenerDisposable? disposable;
 
@@ -1472,7 +1476,7 @@ class EventBusCore {
     int subKey,
     int parentKey,
     ListenerWhere<T> subEventWhere, {
-    Duration? timeout,
+    Duration? timeout = const Duration(seconds: 30),
     ListenerWhere<T>? where,
   }) {
     final completer = Completer<T>();
@@ -1499,7 +1503,7 @@ class EventBusCore {
 
   Future<(T, BusMetadata)> waitForWithMeta<T>(
     int key, {
-    Duration? timeout,
+    Duration? timeout = const Duration(seconds: 30),
     ListenerWhere<T>? where,
   }) {
     final completer = Completer<(T, BusMetadata)>();
@@ -1528,32 +1532,26 @@ class EventBusCore {
     int subKey,
     int parentKey,
     ListenerWhere<T> subEventWhere, {
-    Duration? timeout,
+    Duration? timeout = const Duration(seconds: 30),
     ListenerWhere<T>? where,
   }) {
     final completer = Completer<(T, BusMetadata)>();
     ListenerDisposable? disposable;
 
-    disposable = onOnceSubEventWithMeta<T>(
-      subKey,
-      parentKey,
-      subEventWhere,
-      (value, meta) {
-        disposable?.dispose();
-        if (!completer.isCompleted) completer.complete((value, meta));
-      },
-      where: where,
-    );
+    disposable = onOnceSubEventWithMeta<T>(subKey, parentKey, subEventWhere, (
+      value,
+      meta,
+    ) {
+      disposable?.dispose();
+      if (!completer.isCompleted) completer.complete((value, meta));
+    }, where: where);
 
     if (timeout != null) {
       Future.delayed(timeout, () {
         disposable?.dispose();
         if (!completer.isCompleted) {
           completer.completeError(
-            TimeoutException(
-              'SubEvent did not emit within $timeout',
-              timeout,
-            ),
+            TimeoutException('SubEvent did not emit within $timeout', timeout),
           );
         }
       });
