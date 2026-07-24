@@ -10,6 +10,7 @@
   * Fixed `emitAsync()` dropping events when an async middleware calls `next()` after an `await` — the middleware chain now awaits completion correctly.
   * Fixed `_subEventBackfilledNoMatch` not being cleaned up when a later parent emission matches the subEvent's `where` filter, preventing new sticky listeners from receiving the cached value.
   * Fixed `_tryDeliverSticky` and related methods silently swallowing all errors — now logged in debug mode, consistent with `_invokeListeners`.
+  * Fixed `_removeSubEventListener` and `clearSubEvent` scanning all parent events to find a subKey — O(n) → O(1) via a reverse `_subKeyToParentKey` map.
 
 ## 2.9.3
 

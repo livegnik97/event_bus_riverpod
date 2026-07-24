@@ -973,6 +973,7 @@ class EventBusCore {
     if (_subEventWhere.containsKey(subKey)) return;
     _parentToSubEventKeys.putIfAbsent(parentKey, () => []).add(subKey);
     _subEventWhere.putIfAbsent(subKey, () => subEventWhere);
+    _subKeyToParentKey[subKey] = parentKey;
   }
 
   void _backfillSubEventStickyFromParent<T>(
@@ -1611,10 +1612,12 @@ class EventBusCore {
       _subEventListeners.remove(subKey);
       _subEventWhere.remove(subKey);
       _subEventBackfilledNoMatch.remove(subKey);
-      for (final v in _parentToSubEventKeys.values) {
-        v.remove(subKey);
+      final parentKey = _subKeyToParentKey.remove(subKey);
+      if (parentKey != null) {
+        final siblings = _parentToSubEventKeys[parentKey];
+        siblings?.remove(subKey);
+        if (siblings?.isEmpty ?? false) _parentToSubEventKeys.remove(parentKey);
       }
-      _parentToSubEventKeys.removeWhere((_, v) => v.isEmpty);
     }
   }
 
@@ -1622,10 +1625,12 @@ class EventBusCore {
     _subEventListeners.remove(subKey);
     _subEventWhere.remove(subKey);
     _subEventBackfilledNoMatch.remove(subKey);
-    for (final v in _parentToSubEventKeys.values) {
-      v.remove(subKey);
+    final parentKey = _subKeyToParentKey.remove(subKey);
+    if (parentKey != null) {
+      final siblings = _parentToSubEventKeys[parentKey];
+      siblings?.remove(subKey);
+      if (siblings?.isEmpty ?? false) _parentToSubEventKeys.remove(parentKey);
     }
-    _parentToSubEventKeys.removeWhere((_, v) => v.isEmpty);
   }
 
   void clearSubEventSticky(int subKey) {
