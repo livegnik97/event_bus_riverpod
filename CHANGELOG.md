@@ -14,6 +14,7 @@
   * Fixed `setHistorySize` being called on every `emit()` and `history` read — now no-op if the size is already set.
   * Fixed `EventBusBuilder` not passing `sticky` to `listenManually` on re-subscriptions, causing the `where` filter to be ignored for sticky delivery.
   * Fixed `EventBusCore.waitFor` and friends missing a default timeout — now consistent with the abstract class (30s default).
+  * Removed unused `autoDispose` parameter from all `listen`/`listenAsync`/`listenWithMeta`/`listenAsyncWithMeta` methods in `EventBusCore` and their subEvent counterparts — always disposes on `ref.onDispose`.
 
 ## 2.9.3
 

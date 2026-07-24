@@ -132,7 +132,6 @@ class EventBusCore {
     Ref ref,
     int key,
     ListenerCallback<T> callback, {
-    bool autoDispose = true,
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
@@ -150,18 +149,16 @@ class EventBusCore {
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
-    if (autoDispose) {
-      ref.onDispose(() {
-        _removeListener(key, entry);
-      });
-    }
+    ref.onDispose(() {
+      _removeListener(key, entry);
+    });
   }
 
   void listenAsync<T>(
     Ref ref,
     int key,
     ListenerCallbackAsync<T> callback, {
-    bool autoDispose = true,
+
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
@@ -180,18 +177,16 @@ class EventBusCore {
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
-    if (autoDispose) {
-      ref.onDispose(() {
-        _removeListener(key, entry);
-      });
-    }
+    ref.onDispose(() {
+      _removeListener(key, entry);
+    });
   }
 
   void listenWithMeta<T>(
     Ref ref,
     int key,
     ListenerWithMetaCallback<T> callback, {
-    bool autoDispose = true,
+
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
@@ -210,18 +205,16 @@ class EventBusCore {
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
-    if (autoDispose) {
-      ref.onDispose(() {
-        _removeListener(key, entry);
-      });
-    }
+    ref.onDispose(() {
+      _removeListener(key, entry);
+    });
   }
 
   void listenAsyncWithMeta<T>(
     Ref ref,
     int key,
     ListenerWithMetaCallbackAsync<T> callback, {
-    bool autoDispose = true,
+
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
@@ -241,11 +234,9 @@ class EventBusCore {
 
     _listeners.putIfAbsent(key, () => []).add(entry);
 
-    if (autoDispose) {
-      ref.onDispose(() {
-        _removeListener(key, entry);
-      });
-    }
+    ref.onDispose(() {
+      _removeListener(key, entry);
+    });
   }
 
   ListenerDisposable on<T>(
@@ -1003,7 +994,6 @@ class EventBusCore {
     int parentKey,
     ListenerWhere<T> subEventWhere,
     ListenerCallback<T> callback, {
-    bool autoDispose = true,
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
@@ -1026,9 +1016,7 @@ class EventBusCore {
       where: where,
     );
     _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
-    if (autoDispose) {
-      ref.onDispose(() => _removeSubEventListener(subKey, entry));
-    }
+    ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
   void listenAsyncSubEvent<T>(
@@ -1037,7 +1025,7 @@ class EventBusCore {
     int parentKey,
     ListenerWhere<T> subEventWhere,
     ListenerCallbackAsync<T> callback, {
-    bool autoDispose = true,
+
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
@@ -1061,9 +1049,7 @@ class EventBusCore {
       where: where,
     );
     _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
-    if (autoDispose) {
-      ref.onDispose(() => _removeSubEventListener(subKey, entry));
-    }
+    ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
   void listenSubEventWithMeta<T>(
@@ -1072,7 +1058,7 @@ class EventBusCore {
     int parentKey,
     ListenerWhere<T> subEventWhere,
     ListenerWithMetaCallback<T> callback, {
-    bool autoDispose = true,
+
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
@@ -1096,9 +1082,7 @@ class EventBusCore {
       where: where,
     );
     _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
-    if (autoDispose) {
-      ref.onDispose(() => _removeSubEventListener(subKey, entry));
-    }
+    ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
   void listenAsyncSubEventWithMeta<T>(
@@ -1107,7 +1091,7 @@ class EventBusCore {
     int parentKey,
     ListenerWhere<T> subEventWhere,
     ListenerWithMetaCallbackAsync<T> callback, {
-    bool autoDispose = true,
+
     void Function(Object, StackTrace)? onError,
     bool sticky = false,
     int priority = 0,
@@ -1132,9 +1116,7 @@ class EventBusCore {
       where: where,
     );
     _subEventListeners.putIfAbsent(subKey, () => []).add(entry);
-    if (autoDispose) {
-      ref.onDispose(() => _removeSubEventListener(subKey, entry));
-    }
+    ref.onDispose(() => _removeSubEventListener(subKey, entry));
   }
 
   ListenerDisposable onSubEvent<T>(
