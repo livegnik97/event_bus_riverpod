@@ -8,6 +8,8 @@
 * **Bug fixes**:
   * Fixed `SubEventAction.lastValue` and `SubEventAction.history` silently registering the subEvent as a side effect — reads are now pure lookups.
   * Fixed `emitAsync()` dropping events when an async middleware calls `next()` after an `await` — the middleware chain now awaits completion correctly.
+  * Fixed `_subEventBackfilledNoMatch` not being cleaned up when a later parent emission matches the subEvent's `where` filter, preventing new sticky listeners from receiving the cached value.
+  * Fixed `_tryDeliverSticky` and related methods silently swallowing all errors — now logged in debug mode, consistent with `_invokeListeners`.
 
 ## 2.9.3
 

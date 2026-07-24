@@ -21,6 +21,7 @@ class EventBusCore {
   final Map<int, _EventCacheEntry> _subEventLastValues = {};
   final Map<int, List<int>> _parentToSubEventKeys = {};
   final Map<int, dynamic> _subEventWhere = {};
+  final Map<int, int> _subKeyToParentKey = {};
   final Set<int> _subEventBackfilledNoMatch = {};
   final Map<int, List<ValueWithMeta<Object?>>> _histories = {};
   final Map<int, int> _historySizes = {};
@@ -56,7 +57,11 @@ class EventBusCore {
       if (where == null || where(cached.value as T, cached.metadata)) {
         deliver(cached.value as T);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      if (kDebugMode) {
+        log('[event_bus_riverpod] Error in sticky delivery: $e\n$st');
+      }
+    }
   }
 
   void _tryDeliverStickyWithMeta<T>(
@@ -70,7 +75,11 @@ class EventBusCore {
       if (where == null || where(cached.value as T, cached.metadata)) {
         deliver(cached.value as T, cached.metadata);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      if (kDebugMode) {
+        log('[event_bus_riverpod] Error in sticky delivery: $e\n$st');
+      }
+    }
   }
 
   void _tryDeliverSubEventSticky<T>(
@@ -89,7 +98,11 @@ class EventBusCore {
       if (where == null || where(cached.value as T, cached.metadata)) {
         deliver(cached.value as T);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      if (kDebugMode) {
+        log('[event_bus_riverpod] Error in subEvent sticky delivery: $e\n$st');
+      }
+    }
   }
 
   void _tryDeliverSubEventStickyWithMeta<T>(
@@ -108,7 +121,11 @@ class EventBusCore {
       if (where == null || where(cached.value as T, cached.metadata)) {
         deliver(cached.value as T, cached.metadata);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      if (kDebugMode) {
+        log('[event_bus_riverpod] Error in subEvent sticky delivery: $e\n$st');
+      }
+    }
   }
 
   void listen<T>(
@@ -610,6 +627,7 @@ class EventBusCore {
       }
 
       _subEventLastValues[subKey] = _EventCacheEntry(value, metadata);
+      _subEventBackfilledNoMatch.remove(subKey);
       _appendToHistory(subKey, value, metadata);
 
       final listeners = _subEventListeners[subKey];
@@ -649,6 +667,7 @@ class EventBusCore {
       }
 
       _subEventLastValues[subKey] = _EventCacheEntry(value, metadata);
+      _subEventBackfilledNoMatch.remove(subKey);
       _appendToHistory(subKey, value, metadata);
 
       final listeners = _subEventListeners[subKey];
@@ -937,6 +956,7 @@ class EventBusCore {
     _parentToSubEventKeys.clear();
     _subEventWhere.clear();
     _subEventBackfilledNoMatch.clear();
+    _subKeyToParentKey.clear();
     _histories.clear();
     _historySizes.clear();
     _eventNames.clear();
