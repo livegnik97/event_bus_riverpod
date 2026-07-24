@@ -11,6 +11,7 @@
   * Fixed `_subEventBackfilledNoMatch` not being cleaned up when a later parent emission matches the subEvent's `where` filter, preventing new sticky listeners from receiving the cached value.
   * Fixed `_tryDeliverSticky` and related methods silently swallowing all errors — now logged in debug mode, consistent with `_invokeListeners`.
   * Fixed `_removeSubEventListener` and `clearSubEvent` scanning all parent events to find a subKey — O(n) → O(1) via a reverse `_subKeyToParentKey` map.
+  * Fixed `setHistorySize` being called on every `emit()` and `history` read — now no-op if the size is already set.
 
 ## 2.9.3
 

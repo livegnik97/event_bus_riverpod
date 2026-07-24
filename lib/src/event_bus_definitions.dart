@@ -911,6 +911,7 @@ class EventBusCore {
 
   void setHistorySize(int key, int size) {
     assert(size >= 0, 'historySize must be >= 0');
+    if (_historySizes[key] == size) return;
     if (size > 0) {
       _historySizes[key] = size;
     } else {
