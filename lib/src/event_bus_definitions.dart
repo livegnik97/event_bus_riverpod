@@ -738,23 +738,20 @@ class EventBusCore {
       return;
     }
 
-    bool completed = false;
-    T? finalValue;
+    final completer = Completer<T>();
     int i = 0;
     void next(T val) {
       if (i < chain.length) {
         (chain[i++].callback as EventMiddleware<T>)(val, next);
-      } else {
-        completed = true;
-        finalValue = val;
+      } else if (!completer.isCompleted) {
+        completer.complete(val);
       }
     }
 
     next(value);
 
-    if (completed) {
-      await _notifyAsync(key, finalValue as T, metadata);
-    }
+    final finalValue = await completer.future;
+    await _notifyAsync(key, finalValue, metadata);
   }
 
   ListenerDisposable applyMiddleware<T>(

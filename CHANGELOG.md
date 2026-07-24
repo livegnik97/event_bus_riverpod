@@ -5,6 +5,9 @@
 * **21 — EventBusBuilder**: new widget that rebuilds whenever an event or subEvent fires. Accepts both identifier types polymorphically. No subscription management needed — handles `initState`, `dispose`, and re-subscription on changes automatically.
 * **19 — Logger interceptor**: `logEvents()` now supports **multiple independent callbacks** — each registration adds to a stack instead of replacing the previous one. Providers, widgets, and the global API can all log concurrently without overwriting each other. Each logger is cleaned up individually on dispose.
 * **22 — `waitFor()`**: await the next emission as a `Future<T>` — ideal for navigation after login, waiting for a specific status, or any one-shot coordination. Available on events, subEvents, and the global API. Built-in 30-second timeout prevents hanging futures; supports `where` filter for conditional matching.
+* **Bug fixes**:
+  * Fixed `SubEventAction.lastValue` and `SubEventAction.history` silently registering the subEvent as a side effect — reads are now pure lookups.
+  * Fixed `emitAsync()` dropping events when an async middleware calls `next()` after an `await` — the middleware chain now awaits completion correctly.
 
 ## 2.9.3
 
